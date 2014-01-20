@@ -39,9 +39,7 @@ Examples:
 			p.Name = n
 			return nil
 		}
-		func (p *Person) Details() string {
-			return fmt.Sprintf("Name: %s Age: %d years", p.Name, p.Age)
-		}
+
 		func get(k string, m map[string]string) string { return m[k] }
 
 		func set(p *Person, m map[string]string, handler queue.ErrHandler) {
