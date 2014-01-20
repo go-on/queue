@@ -3,6 +3,10 @@ queue
 
 Streamlining error handling and piping through a queue of go functions
 
+[![Build Status](https://secure.travis-ci.org/go-on/queue.png)](http://travis-ci.org/go-on/queue)
+
+[![GoDoc](https://godoc.org/github.com/go-on/queue?status.png)](http://godoc.org/github.com/go-on/queue)
+
 Examples
 --------
 
