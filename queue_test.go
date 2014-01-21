@@ -1,6 +1,9 @@
 package queue
 
 import (
+	"bytes"
+	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -71,9 +74,146 @@ func TestNoFunc(t *testing.T) {
 		t.Errorf("expecting error at position 1, but got %d", details.Position)
 	}
 
-	exp := "InvalidFunc int at position 1: int is no func"
-	if err.Error() != exp {
-		t.Errorf("expecting error message: %#v, got: %#v", exp, err.Error())
+	if !strings.Contains(err.Error(), "invalid") {
+		t.Errorf("expecting 'invalid' in error message, got: %#v", err.Error())
+	}
+}
+
+func valsToTypes(vals []interface{}) []reflect.Type {
+	types := make([]reflect.Type, len(vals))
+	for i, v := range vals {
+		types[i] = reflect.TypeOf(v)
+	}
+	return types
+}
+
+type validationtestCase struct {
+	function  interface{}
+	args      []interface{}
+	shouldErr bool
+}
+
+func TestValidateArgs(t *testing.T) {
+	/*
+		we want the following tests:
+
+		non variadic functions:
+		(0) matching number of args, matching types
+		(1) matching number of args, not matching types
+		(2) not matching number of args, matching types
+		(3) not matching number of args, not matching types
+		(4) no args
+
+		variadic functions:
+		(5) matching number of args, matching types
+		(6) more args, matching types
+		(7) missing optional arg, matching types
+
+		(8) matching number of args, not matching types before variadic
+		(9) matching number of args, not matching type on variadic
+
+		(10) more args, not matching types before variadic
+		(11) more args, not matching types in variadic
+		(12) more args, not matching types after variadic
+		(13) missing optional arg, not matching types
+
+		(14) missing args, matching types
+		(15) missing args, not matching types
+	*/
+
+	newT := func(shouldErr bool, fn interface{}, args ...interface{}) *validationtestCase {
+		return &validationtestCase{fn, args, shouldErr}
+	}
+
+	var testCases = []*validationtestCase{
+
+		newT(false, set, "hi"),      // 0
+		newT(true, set, 4),          // 1
+		newT(true, set, "hi", "ho"), // 2
+		newT(true, set, 4, 5),       // 3
+		newT(false, read),           // 4
+
+		newT(false, addIntsToString, "a", 4),    // 5
+		newT(false, addIntsToString, "a", 4, 5), // 6
+		newT(false, addIntsToString, "a"),       // 7
+
+		newT(true, addIntsToString, 4.5, 4),   // 8
+		newT(true, addIntsToString, "a", "b"), // 9
+
+		newT(true, addIntsToString, 4.5, 4, 5),   // 10
+		newT(true, addIntsToString, "a", "b", 5), // 11
+		newT(true, addIntsToString, "a", 5, "b"), // 12
+		newT(true, addIntsToString, 5),           // 13
+
+		newT(true, addStringsandIntToString, "a"), // 14
+		newT(true, addStringsandIntToString, 2),   // 15
+
+	}
+
+	for i, tc := range testCases {
+		err := validateArgs(
+			reflect.TypeOf(tc.function),
+			valsToTypes(tc.args))
+
+		if err != nil && !tc.shouldErr {
+			t.Errorf("error in testCase[%d]: should not err, but got: %s", i, err)
+		}
+
+		if err == nil && tc.shouldErr {
+			t.Errorf("error in testCase[%d]: should err, but did not", i)
+		}
+	}
+
+}
+
+func TestValidateFn(t *testing.T) {
+	type test struct {
+		*Queue
+		shouldErr bool
+	}
+
+	newT := func(q *Queue, shouldErr bool) *test {
+		return &test{q, shouldErr}
+	}
+
+	s := &S{}
+
+	// maps queue to if it should return an error
+	tests := []*test{
+		// wrong argument type
+		newT(New().Add(read).Add(s.Set, PIPE), true),
+
+		// too many arguments
+		newT(New().Add(multiInts).Add(s.Set, PIPE), true),
+
+		// too few arguments
+		newT(New().Add(read).Add(addStringsandIntToString, PIPE), true),
+
+		// variadic params ok
+		newT(New().Add(multiInts).Add(addIntsToString, "s", PIPE), false),
+
+		// variadic params some not ok
+		newT(New().Add(multiInts).Add(addIntsToString, "s", PIPE, "hi"), true),
+	}
+
+	for i, tt := range tests {
+		err := tt.Validate()
+		if err == nil && tt.shouldErr {
+			t.Errorf("should raise error, but does not", i)
+			continue
+		}
+
+		if err != nil && !tt.shouldErr {
+			t.Errorf("should not raise error, but does: %s", i, err.Error())
+			continue
+		}
+
+		if err != nil {
+			_, ok := err.(InvalidArgument)
+			if !ok {
+				t.Errorf("should be InvalidArgument error, but is: %T", i, err)
+			}
+		}
 	}
 }
 
@@ -82,10 +222,11 @@ func TestWrongParams(t *testing.T) {
 	if err == nil {
 		t.Errorf("expecting error, but got none")
 	}
-	details, ok := err.(CallError)
+
+	details, ok := err.(InvalidArgument)
 
 	if !ok {
-		t.Errorf("error is no CallError, but: %T", err)
+		t.Errorf("error is no InvalidArgument, but: %T", err)
 		return
 	}
 
@@ -93,10 +234,10 @@ func TestWrongParams(t *testing.T) {
 		t.Errorf("expecting error at position 0, but got %d", details.Position)
 	}
 
-	exp := `CallError func(string) error at position 0 called with []interface {}{4}: reflect: Call using int as type string`
-	if err.Error() != exp {
-		t.Errorf("expecting error message: %#v, got: %#v", exp, err.Error())
+	if !strings.Contains(details.Error(), "invalid") {
+		t.Errorf("wrong error message: should contain 'invalid', but is: %#v", details.Error())
 	}
+
 }
 
 func TestPanic(t *testing.T) {
@@ -104,16 +245,21 @@ func TestPanic(t *testing.T) {
 	if err == nil {
 		t.Errorf("expecting error, but got none")
 	}
-	details, ok := err.(CallError)
+	details, ok := err.(CallPanic)
 
 	if !ok {
-		t.Errorf("error is no CallError, but: %T", err)
+		t.Errorf("error is no CallPanic, but: %T", err)
 		return
 	}
 
 	if details.Position != 0 {
 		t.Errorf("expecting error at position 0, but got %d", details.Position)
 	}
+
+	if !strings.Contains(details.Error(), "panicked") {
+		t.Errorf("wrong error message: should contain 'panicked', but is: %#v", details.Error())
+	}
+
 }
 
 func TestMethod(t *testing.T) {
@@ -127,6 +273,23 @@ func TestMethod(t *testing.T) {
 	if err != nil {
 		t.Errorf("expecting no error, but got: %s", err.Error())
 	}
+}
+
+func TestInterface(t *testing.T) {
+	v := ""
+	a := func(s fmt.Stringer) {
+		v = s.String()
+	}
+	err := New().Add(bytes.NewBufferString, "hi").Add(a, PIPE).Run(true)
+
+	if err != nil {
+		t.Errorf("expecting no error, but got: %s", err.Error())
+	}
+
+	if v != "hi" {
+		t.Errorf("wrong result: expected \"hi\", got %#v", v)
+	}
+
 }
 
 var testsPipe = []testcase{

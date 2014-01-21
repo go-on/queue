@@ -1,109 +1,49 @@
-package queue
+// Copyright (c) 2014 Marc René Arns. All rights reserved.
+// Use of this source code is governed by a MIT
+// license that can be found in the LICENSE file.
 
 /*
+	Package queue provides a queue of function calls.
+	It allows streamlined error handling and piping of returned values.
 
-The package queue offers a queue of functions with optional parameters that
-allows streamlined error handling and piping of returned values.
+	Usage:
 
-The functions in the queue are checked for the type of the last return
-value. If it is an error, the value will be checked when running the queue
-and the error handler is invoked if the error is not nil.
+		...
+		// create a new queue
+		err := New().
+			// add function get to the queue that should be called with "Age" and m
+			Add(get, "Age", m).
 
-The error handler decides, if it can handle the error and the run continues
-or if it can't and the run stops returning the unhandled error.
+			// add function strconv.Atoi and pass the value returned from get via PIPE
+			Add(strconv.Atoi, PIPE).
 
-In a run, the return values of the previous function may be piped to the
-next function. However, if the last return value of the previous function
-is an error, the error will be ignored in the pipe.
+			// add method SetAge of p and pass the value returned from strconv.Atoi
+			// note that the second return value error is not part of the pipe
+			// it will however be sent to the error handler if it is not nil
+			Add(p.SetAge, PIPE).
+			...
+			.OnError(STOP)  // optional custom error handler, STOP is default
+			.Run(true) // validate the queue (true) and then run it, returning
+			           // unhandled errors. Run(false) would have skipped the validation
+		...
 
-Examples:
+	The functions in the queue are checked for the type of the last return
+	value. If it is an error, the value will be checked when running the queue
+	and the error handler is invoked if the error is not nil.
 
-		package main
+	The error handler decides, if it can handle the error and the run continues
+	(by returning nil) or if it can't and the run stops (by returning an/the error).
 
-		import (
-			"fmt"
-			"github.com/go-on/queue"
-			"strconv"
-		)
+	Custom error handlers must fullfill the ErrHandler interface.
 
-		type Person struct {
-			Name string
-			Age  int
-		}
+	When running the queue, the return values of the previous function with be injected into
+	the argument list of the next function at the position of the pseudo argument PIPE.
+	However, if the last return value is an error, it will be omitted.
 
-		func (p *Person) SetAge(i int) { p.Age = i }
-		func (p *Person) SetName(n string) error {
-			if n == "Peter" {
-				return fmt.Errorf("Peter is not allowed")
-			}
-			p.Name = n
-			return nil
-		}
-
-		func get(k string, m map[string]string) string { return m[k] }
-
-		func set(p *Person, m map[string]string, handler queue.ErrHandler) {
-			// create a new queue with the default error handler
-			q := queue.New().
-				// get the name from the map
-				Add(get, "Name", m).
-				// set the name in the struct
-				Add(p.SetName, queue.PIPE).
-				// get the age from the map
-				Add(get, "Age", m).
-				// convert the age to int
-				Add(strconv.Atoi, queue.PIPE).
-				// set the age in the struct
-				Add(p.SetAge, queue.PIPE).
-				// inspect the struct
-				Add(fmt.Printf, "SUCCESS %#v\n\n", p)
-
-			// if a custom error handler is passed, use it,
-			// otherwise the default error handler queue.STOP is used
-			// which stops on the first error, returning it
-			if handler != nil {
-				q.OnError(handler)
-			}
-			// run the whole queue and validate it before running
-			err := q.Run(true)
-
-			// report, if there is an unhandled error
-			if err != nil {
-				fmt.Printf("ERROR %#v: %s\n\n", p, err)
-			}
-		}
-
-		var ignoreAge = queue.ErrHandlerFunc(func(err error) error {
-			_, ok := err.(*strconv.NumError)
-			if ok {
-				return nil
-			}
-			return err
-		})
-
-		func main() {
-			var arthur = map[string]string{"Name": "Arthur", "Age": "42"}
-			set(&Person{}, arthur, nil)
-
-			var anne = map[string]string{"Name": "Anne", "Age": "4b"}
-			// this will report the error of the invalid age that could not be parsed
-			set(&Person{}, anne, nil)
-
-			// this will ignore the invalid age, but no other errors
-			set(&Person{}, anne, ignoreAge)
-
-			var peter = map[string]string{"Name": "Peter", "Age": "4c"}
-
-			// this will ignore the invalid age, but no other errors, so
-			// it should err for the fact that peter is not allowed
-			set(&Person{}, peter, ignoreAge)
-
-			// this will ignore any errors and continue the queue run
-			set(&Person{}, peter, queue.IGNORE)
-
-		}
-
+	A package with shortcuts that has a more compact syntax and is better includable with dot (.)
+	is provided at http://github.com/go-on/queue/q
 */
+package queue
 
 import (
 	"fmt"
@@ -115,71 +55,188 @@ type (
 		// queue of functions
 		functions []reflect.Value
 
-		// maps the position of a function in the queue to its parameters
-		parameters map[int][]interface{}
+		// maps the position of a function in the queue to its arguments
+		arguments map[int][]interface{}
 
-		ErrHandler
+		errHandler ErrHandler
 	}
 )
 
 // New creates a new function queue, that has the default ErrHandler STOP
 //
-// More about adding functions to the Queue: see Add().
-// More about error handling and running a Queue: see Run().
+// Use Add() for adding functions to the Queue and Run() for error handling and running a Queue.
 func New() *Queue {
 	return &Queue{
-		parameters: map[int][]interface{}{},
-		ErrHandler: STOP,
+		arguments:  map[int][]interface{}{},
+		errHandler: STOP,
 	}
 }
 
 // OnError returns a new empty *Queue, where the
-// ErrHandler is set to the given handler
+// errHandler is set to the given handler
 //
 // More about adding functions to the Queue: see Add().
 // More about error handling and running a Queue: see Run().
 func OnError(handler ErrHandler) *Queue {
 	return &Queue{
-		parameters: map[int][]interface{}{},
-		ErrHandler: handler,
+		arguments:  map[int][]interface{}{},
+		errHandler: handler,
 	}
 }
 
-// OnError sets the ErrHandler and may be chained
+// OnError sets the errHandler and may be chained
 func (q *Queue) OnError(handler ErrHandler) *Queue {
-	q.ErrHandler = handler
+	q.errHandler = handler
 	return q
 }
 
-// Add adds the given function with optional parameters to the function queue
+// Add adds the given function with optional arguments to the function queue
 // and may be chained.
 //
-// The number and type signature of the parameters and piped return values must
+// The number and type signature of the arguments and piped return values must
 // match with the receiving function.
 //
 // More about valid queues: see Validate()
 // More about function calling: see Run()
-func (q *Queue) Add(function interface{}, parameters ...interface{}) *Queue {
+func (q *Queue) Add(function interface{}, arguments ...interface{}) *Queue {
 	q.functions = append(q.functions, reflect.ValueOf(function))
-	if len(parameters) > 0 {
-		q.parameters[len(q.functions)-1] = parameters
+	if len(arguments) > 0 {
+		q.arguments[len(q.functions)-1] = arguments
 	}
 	return q
 }
 
-// TODO: check if all functions are functions
-// and if all input and piped parameters have the right type
-// return specific error types
+// Validate validates the function signatures and returns any errors
 func (q *Queue) Validate() (err error) {
-	for i, fn := range q.functions {
-		if fn.Kind() != reflect.Func {
-			invErr := InvalidFunc{}
-			invErr.ErrorMessage = fmt.Sprintf("%s is no func", fn.Type().String())
-			invErr.Position = i
-			invErr.Type = fn.Type().String()
-			err = invErr
+	var piped []reflect.Type
+	for i, _ := range q.functions {
+		piped, err = q.validateFn(i, piped)
+		if err != nil {
 			return
 		}
+	}
+	return
+}
+
+func validateNums(fn reflect.Type, args []reflect.Type) (numIns int, numArgs int, diff int, err error) {
+	numIns = fn.NumIn()
+	numArgs = len(args)
+	diff = numArgs - numIns
+	// if number is equal, there is never an error in num
+	if diff == 0 {
+		return
+	}
+	// if number is not equal and function is not variadic,
+	// it is an error for sure
+	if !fn.IsVariadic() {
+		err = fmt.Errorf("func wants %d arguments, but gets %d",
+			numIns, numArgs)
+		return
+	}
+
+	// we are here, if the number is not equal and
+	// the function is variadic. There should not be to few
+	if diff < -1 {
+		err = fmt.Errorf("func wants at least %d arguments, but gets %d",
+			numIns, numArgs)
+		return
+	}
+
+	// in all other cases the number of arguments is ok
+	return
+}
+
+func validateArgs(fn reflect.Type, args []reflect.Type) error {
+	numIns, _, diff, err := validateNums(fn, args)
+
+	// error in number of inputs, stop here
+	if err != nil {
+		return err
+	}
+	// no inputs: no check required
+	if numIns == 0 {
+		return nil
+	}
+
+	// check all ins of the function unless the
+	// function is variadic, then skip the last in
+	limit := numIns
+	if fn.IsVariadic() {
+		limit -= 1
+	}
+	for i := 0; i < limit; i++ {
+		is := args[i]
+		should := fn.In(i)
+		if !is.AssignableTo(should) {
+			return fmt.Errorf("%d. argument is a %#v but should be a %#v", i+1, is.String(), should.String())
+		}
+	}
+	// if is not variadic, we're done
+	if !fn.IsVariadic() {
+		return nil
+	}
+
+	// now func must be variadic and we need to check all the args
+	// that are defined by the variadic
+	should := fn.In(numIns - 1).Elem()
+	for i := 0; i < diff+1; i++ {
+		j := i + numIns - 1
+		is := args[j]
+		if !is.AssignableTo(should) {
+			return fmt.Errorf("%d. argument  is a %#v but should be a %#v", j+1, is.String(), should.String())
+		}
+	}
+
+	return nil
+}
+
+// validateFn validates the function at position i in the queue
+func (q *Queue) validateFn(i int, piped []reflect.Type) (returns []reflect.Type, err error) {
+	fn := q.functions[i]
+	if fn.Kind() != reflect.Func {
+		invErr := InvalidFunc{}
+		invErr.ErrorMessage = fmt.Sprintf("%#v is no func", fn.Type().String())
+		invErr.Position = i
+		invErr.Type = fn.Type().String()
+		err = invErr
+		return
+	}
+
+	all := []reflect.Type{}
+	args, hasArgs := q.arguments[i]
+	if hasArgs {
+		for _, p := range args {
+			if _, isPipe := p.(pipe); isPipe {
+				all = append(all, piped...)
+			} else {
+				all = append(all, reflect.TypeOf(p))
+			}
+		}
+	}
+	ftype := fn.Type()
+
+	err = validateArgs(ftype, all)
+	if err != nil {
+		invErr := InvalidArgument{}
+		invErr.ErrorMessage = err.Error()
+		invErr.Position = i
+		invErr.Type = fn.Type().String()
+		err = invErr
+		return
+	}
+
+	num := ftype.NumOut()
+	if num == 0 {
+		return
+	}
+
+	if ftype.Out(num-1).String() == "error" {
+		num = num - 1
+	}
+	returns = make([]reflect.Type, num)
+
+	for i := 0; i < num; i++ {
+		returns[i] = ftype.Out(i)
 	}
 	return
 }
@@ -190,12 +247,12 @@ func (q *Queue) Validate() (err error) {
 // the queue will not be run and the error will be returned
 //
 // When the queue is run, every function in the queue is called with
-// its parameters. If one of the parameters is PIPE, PIPE is replaced
+// its arguments. If one of the arguments is PIPE, PIPE is replaced
 // by the returned values of previous functions.
 //
 // If the last return value of a function is of type error, it value is
 // skipped when piping to the next function and the error is checked.
-
+//
 // If the error is not nil, the ErrHandler of the Queue is called.
 // If the ErrHandler returns nil, the next function is called.
 // If it returns an error, the queue is stopped and the error is returned.
@@ -212,7 +269,7 @@ func (q *Queue) Run(validate bool) (err error) {
 	for i := range q.functions {
 		vals, err = q.pipeFn(i, vals)
 		if err != nil {
-			err = q.HandleError(err)
+			err = q.errHandler.HandleError(err)
 		}
 		if err != nil {
 			return
@@ -221,8 +278,8 @@ func (q *Queue) Run(validate bool) (err error) {
 	return
 }
 
-// calls the func at position i, with its parameters,
-// prepended by the given prepended params (that come from
+// calls the func at position i, with its arguments,
+// prepended by the given prepended args (that come from
 // a result if a previous function)
 // it returns all values returned by the function, if the
 // last returned value is an error, it is stripped out and returned
@@ -231,9 +288,9 @@ func (q *Queue) Run(validate bool) (err error) {
 func (q *Queue) pipeFn(i int, piped []reflect.Value) (returns []reflect.Value, err error) {
 	fn := q.functions[i]
 	all := []interface{}{}
-	params, hasParams := q.parameters[i]
-	if hasParams {
-		for _, p := range params {
+	args, hasArgs := q.arguments[i]
+	if hasArgs {
+		for _, p := range args {
 			if _, isPipe := p.(pipe); isPipe {
 				all = append(all, toInterfaces(piped)...)
 			} else {
@@ -244,7 +301,7 @@ func (q *Queue) pipeFn(i int, piped []reflect.Value) (returns []reflect.Value, e
 	defer func() {
 		e := recover()
 		if e != nil {
-			ce := CallError{}
+			ce := CallPanic{}
 			ce.ErrorMessage = fmt.Sprintf("%v", e)
 			ce.Params = all
 			ce.Type = fn.Type().String()
@@ -258,10 +315,11 @@ func (q *Queue) pipeFn(i int, piped []reflect.Value) (returns []reflect.Value, e
 		return
 	}
 
+	last := num - 1
 	// TODO: there should be a better way to do this
-	if fn.Type().Out(num-1).String() == "error" {
-		res := returns[num-1]
-		returns = returns[:num-1]
+	if fn.Type().Out(last).String() == "error" {
+		res := returns[last]
+		returns = returns[:last]
 		if !res.IsNil() {
 			err = res.Interface().(error)
 		}
@@ -270,11 +328,15 @@ func (q *Queue) pipeFn(i int, piped []reflect.Value) (returns []reflect.Value, e
 }
 
 type (
+	// Each Queue has an error handler that is called if
+	// a function returns an error.
+	//
+	// The default error handler is STOP.
 	ErrHandler interface {
-		// receives and error and either
-		// handles the error and returns nil
-		// or can't handle the error and returns the error
-		// or returns another error
+		// HandleError receives a non nil error and either
+		// handles it and returns nil or can't handle the error.
+		// Then it must return the original error or some
+		// other not nil error
 		HandleError(error) error
 	}
 
@@ -298,26 +360,56 @@ type pipe struct{}
 // non error values of the previous function
 var PIPE = pipe{}
 
+// Error returned if a function is not valid
 type InvalidFunc struct {
-	Position     int
-	Type         string
+	// position of the function in the queue
+	Position int
+
+	// type signature of the function
+	Type string
+
+	// error message
 	ErrorMessage string
 }
 
 func (i InvalidFunc) Error() string {
-	return fmt.Sprintf("InvalidFunc %s at position %d: %s", i.Type, i.Position, i.ErrorMessage)
+	return fmt.Sprintf("%d. function %#v is invalid:\n\t%s", i.Position+1, i.Type, i.ErrorMessage)
 }
 
-type CallError struct {
-	Position     int
-	Type         string
+// Error returned if a function is not valid
+type InvalidArgument struct {
+	// position of the function in the queue
+	Position int
+
+	// type signature of the function
+	Type string
+
+	// error message
 	ErrorMessage string
-	Params       []interface{}
 }
 
-func (c CallError) Error() string {
-	return fmt.Sprintf("CallError %s at position %d called with %#v: %s",
-		c.Type, c.Position, c.Params, c.ErrorMessage)
+func (i InvalidArgument) Error() string {
+	return fmt.Sprintf("%d. function %#v gets invalid argument:\n\t%s", i.Position+1, i.Type, i.ErrorMessage)
+}
+
+// Error returned if a function resulted in a panic
+type CallPanic struct {
+	// position of the function in the queue
+	Position int
+
+	// type signature of the function
+	Type string
+
+	// arguments passed to the function
+	Params []interface{}
+
+	// error message
+	ErrorMessage string
+}
+
+func (c CallPanic) Error() string {
+	return fmt.Sprintf("%d. function %#v panicked (was called with %#v):\n\t%s",
+		c.Position+1, c.Type, c.Params, c.ErrorMessage)
 }
 
 // toValues is a helper function that creates and returns a slice of

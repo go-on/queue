@@ -1,50 +1,98 @@
+// Copyright (c) 2014 Marc René Arns. All rights reserved.
+// Use of this source code is governed by a MIT
+// license that can be found in the LICENSE file.
+
+/*
+	Package q provides shortcuts for the package at http://github.com/go-on/queue
+
+	It has a more compact syntax and is better includable with dot (.).
+
+	Example 1
+
+		err := New().Add(get, "Age", m).Add(strconv.Atoi, PIPE).Add(p.SetAge, PIPE).Run(true)
+
+	would be rewritten to
+
+		err := Q(get, "Age", m)(strconv.Atoi, V)(p.SetAge, V).Run(true)
+
+
+	Example 2
+
+		OnError(IGNORE).Add(get, "Age", m).Add(strconv.Atoi, PIPE).Add(p.SetAge, PIPE).Run(true)
+
+	would be rewritten to
+
+		Err(IGNORE)(get, "Age", m)(strconv.Atoi, V)(p.SetAge, V).Run(true)
+
+*/
 package q
 
 import (
 	"github.com/go-on/queue"
 )
 
-// shortcut for PIPE
-var V = queue.PIPE
-
-type (
-	stopOnError struct {
-		err error
-	}
-
-	catchErrors struct {
-		eh  ErrHandler
-		err error
-	}
-
-	qfunc func(fn interface{}, params ...interface{}) qfunc
+var (
+	V      = queue.PIPE
+	STOP   = queue.STOP
+	IGNORE = queue.IGNORE
 )
 
-func (p qfunc) S() error {
-	var r = &stopOnError{}
-	p(r)
+type (
+	run struct {
+		validate bool
+		err      error
+	}
+
+	onError struct {
+		handler queue.ErrHandler
+	}
+
+	// QFunc is a function that manages a queue and returns itself for chaining
+	QFunc func(fn interface{}, params ...interface{}) QFunc
+)
+
+// Run runs the queue
+func (q QFunc) Run(validate bool) error {
+	var r = &run{validate: validate}
+	q(r)
 	return r.err
 }
 
-func (p qfunc) C(eh ErrHandler) (err error) {
-	ce := &catchErrors{eh: eh}
-	p(ce)
-	return ce.err
+// Err sets the ErrHandler of the queue
+func (q QFunc) Err(handler queue.ErrHandler) QFunc {
+	h := &onError{handler: handler}
+	q(h)
+	return q
 }
 
-func T(fn interface{}, params ...interface{}) qfunc {
-	t := Tie(fn, params...)
-	var p qfunc
-	p = func(fn interface{}, i ...interface{}) qfunc {
+func mkQFunc(q *queue.Queue) QFunc {
+	var p QFunc
+	p = func(fn interface{}, i ...interface{}) QFunc {
 		switch v := fn.(type) {
-		case *stopOnError:
-			v.err = t.StopOnError()
-		case *catchErrors:
-			v.err = t.CatchErrors(v.eh)
+		case *run:
+			v.err = q.Run(v.validate)
+		case *onError:
+			q.OnError(v.handler)
 		default:
-			t.And(fn, i...)
+			q.Add(fn, i...)
 		}
 		return p
 	}
 	return p
+}
+
+// Q returns a fresh queue as QFunc prefilled with the given function
+// and arguments. The error handler is set to the default STOP (like in
+// the queue package).
+//
+// The returned QFunc can be called to add new function/arguments combinations
+// to the queue. Since it returns itself it could be chained.
+func Q(function interface{}, arguments ...interface{}) QFunc {
+	return mkQFunc(queue.New().Add(function, arguments...))
+}
+
+// Err returns a fresh queue as QFunc.
+// It sets the given ErrHandler for the queue.
+func Err(handler queue.ErrHandler) QFunc {
+	return mkQFunc(queue.OnError(handler))
 }

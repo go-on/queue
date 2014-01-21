@@ -83,6 +83,14 @@ func appendString(s string) error {
 	return nil
 }
 
+func addIntsToString(s string, ints ...int) string {
+	return fmt.Sprintf("%s %v", s, ints)
+}
+
+func addStringsandIntToString(s string, i int, strs ...string) string {
+	return fmt.Sprintf("%s %d %v", s, i, strs)
+}
+
 func appendInts(is ...int) error {
 	for _, i := range is {
 		result = fmt.Sprintf("%s%d", result, i)
@@ -102,6 +110,10 @@ func doPanic() {
 func setErr(s string) error {
 	result = s
 	return fmt.Errorf("setErr")
+}
+
+func multiInts() (int, int, int) {
+	return 1, 2, 3
 }
 
 func setToXErr() error {
