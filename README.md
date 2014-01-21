@@ -101,4 +101,4 @@ func main() {
 Shortcuts
 ---------
 
-A package with shortcuts that has a more compact syntax and is better includable with dot (.) is provided at http://github.com/go-on/queue/q
+A package with shortcuts that has a more compact syntax and is better includable with dot (.) is provided at github.com/go-on/queue/q
