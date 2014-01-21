@@ -41,7 +41,7 @@
 	However, if the last return value is an error, it will be omitted.
 
 	A package with shortcuts that has a more compact syntax and is better includable with dot (.)
-	is provided at http://github.com/go-on/queue/q
+	is provided at github.com/go-on/queue/q
 */
 package queue
 
