@@ -7,6 +7,7 @@
 	It allows streamlined error handling and piping of returned values.
 
 	This package is considered stable and ready for production.
+	It requires Go >= 1.1.
 
 	Motivation:
 

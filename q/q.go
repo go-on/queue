@@ -5,6 +5,8 @@
 /*
 	Package q provides shortcuts for the package at http://github.com/go-on/queue
 
+	It requires Go >= 1.1.
+
 	It has a more compact syntax and is better includable with dot (.).
 
 	Example 1
