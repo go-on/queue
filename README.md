@@ -1,7 +1,7 @@
 queue
 =====
 
-Streamlining error handling and piping through a queue of go functions
+Streamlined error handling and piping through a queue of go functions
 
 [![Build Status](https://secure.travis-ci.org/go-on/queue.png)](http://travis-ci.org/go-on/queue)
 
@@ -10,7 +10,7 @@ Streamlining error handling and piping through a queue of go functions
 Status
 ------
 
-This package is stable and ready for production.
+This package is considered stable and ready for production.
 
 Why
 ---
