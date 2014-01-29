@@ -9,7 +9,7 @@ Streamlined error handling and piping through a queue of go functions
 
 Status
 ------
-
+100% test coverage.
 This package is considered stable and ready for production.
 
 Why
