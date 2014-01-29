@@ -29,7 +29,7 @@
 	This is especially annoying if you want to handle all errors the same way
 	(e.g. return the first error).
 
-	This package provides a way to call functions in a queue and collecting the errors via a
+	This package provides a way to call functions in a queue while collecting the errors via a
 	predefined or custom error handler. The predefined handler returns on the first error and
 	custom error handlers might be used to catch/handle some/all kinds of errors while keeping the
 	queue running.
