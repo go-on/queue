@@ -1,0 +1,27 @@
+{
+  "Exports": {
+    "*Queue.Add": "(*Queue) Add(interface{},...interface{}) *Queue",
+    "*Queue.Check": "(*Queue) Check() error",
+    "*Queue.CheckAndRun": "(*Queue) CheckAndRun() error",
+    "*Queue.OnError": "(*Queue) OnError(ErrHandler) *Queue",
+    "*Queue.Run": "(*Queue) Run() error",
+    "CallPanic": "type CallPanic struct {ErrorMessage string; Params []interface{}; Position int; Type string}",
+    "CallPanic.Error": "(CallPanic) Error() string",
+    "ErrHandler": "type ErrHandler interface {HandleError(error) error}",
+    "ErrHandlerFunc": "type ErrHandlerFunc (error) error",
+    "ErrHandlerFunc.HandleError": "(ErrHandlerFunc) HandleError(error) error",
+    "IGNORE": "ErrHandlerFunc(func(err error) error { return nil })",
+    "InvalidArgument": "type InvalidArgument struct {ErrorMessage string; Position int; Type string}",
+    "InvalidArgument.Error": "(InvalidArgument) Error() string",
+    "InvalidFunc": "type InvalidFunc struct {ErrorMessage string; Position int; Type string}",
+    "InvalidFunc.Error": "(InvalidFunc) Error() string",
+    "New": "func () *Queue",
+    "OnError": "func (ErrHandler) *Queue",
+    "PIPE": "pipe{}",
+    "Queue": "type Queue struct{}",
+    "STOP": "ErrHandlerFunc(func(err error) error { return err })",
+    "init": ""
+  },
+  "Imports": {},
+  "Path": "github.com/go-on/queue"
+}
