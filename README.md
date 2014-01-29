@@ -140,5 +140,33 @@ Shortcuts
 
 A package with shortcuts that has a more compact syntax and is better includable with dot (.) is provided at github.com/go-on/queue/q
 
+That would shorten the above to
+
+```go
+func set(p *Person, m map[string]string, handler queue.ErrHandler) {
+    // create a new queue with the default error handler
+    _q := q.Q(get, "Name", m)(
+            p.SetName, q.V,
+        )(
+            get, "Age", m,
+        )(
+            strconv.Atoi, q.V,
+        )(
+            p.SetAge, q.V,
+        )(
+            fmt.Printf, "SUCCESS %#v\n\n", p,
+        )
+
+    if handler != nil {
+        _q.OnError(handler)
+    }
+    err := _q.Run()
+    if err != nil {
+        fmt.Printf("ERROR %#v: %s\n\n", p, err)
+    }
+}
+```
+
+
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/go-on/queue/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
