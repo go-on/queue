@@ -9,7 +9,7 @@ import (
 
 func TestQ(t *testing.T) {
 	var bf bytes.Buffer
-	err := Q(strconv.Atoi, "4")(fmt.Fprintf, &bf, "%d", V).Err(STOP).Run(true)
+	err := Q(strconv.Atoi, "4")(fmt.Fprintf, &bf, "%d", V).Err(STOP).Run()
 
 	if err != nil {
 		t.Errorf("expected no error, but got: %#v", err.Error())
@@ -22,7 +22,7 @@ func TestQ(t *testing.T) {
 
 func TestErr(t *testing.T) {
 	var bf bytes.Buffer
-	err := Err(IGNORE)(strconv.Atoi, "b")(fmt.Fprintf, &bf, "%d", 5).Run(true)
+	err := Err(IGNORE)(strconv.Atoi, "b")(fmt.Fprintf, &bf, "%d", 5).CheckAndRun()
 	if err != nil {
 		t.Errorf("expected no error, but got: %#v", err.Error())
 	}

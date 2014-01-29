@@ -43,8 +43,8 @@ func setStruct(p *person, m map[string]string, handler ErrHandler) {
 	if handler != nil {
 		q.OnError(handler)
 	}
-	// run the whole queue and validate it before running
-	err := q.Run(true)
+	// check the whole queue and run it
+	err := q.CheckAndRun()
 
 	// report, if there is an unhandled error
 	if err != nil {

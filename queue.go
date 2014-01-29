@@ -6,6 +6,34 @@
 	Package queue provides a queue of function calls.
 	It allows streamlined error handling and piping of returned values.
 
+	In go, sometimes you need to run a bunch of functions that return errors and/or results. You might
+	end up writing stuff like this
+
+		err = fn1(...)
+
+		if err != nil {
+		   // handle error somehow
+		}
+
+		err = fn2(...)
+
+		if err != nil {
+		   // handle error somehow
+		}
+
+		...
+
+
+	a lot of times.
+
+	This is especially annoying if you want to handle all errors the same way
+	(e.g. return the first error).
+
+	This package provides a way to call functions in a queue and collecting the errors via a
+	predefined or custom error handler. The predefined handler returns on the first error and
+	custom error handlers might be used to catch/handle some/all kinds of errors while keeping the
+	queue running.
+
 	Usage:
 
 		...
@@ -23,8 +51,14 @@
 			Add(p.SetAge, PIPE).
 			...
 			.OnError(STOP)  // optional custom error handler, STOP is default
-			.Run(true) // validate the queue (true) and then run it, returning
-			           // unhandled errors. Run(false) would have skipped the validation
+			.Run()          // run it, returning unhandled errors.
+
+			- OR -
+
+			.CheckAndRun() // if you want to check for type errors of the functions/arguments before the run
+
+
+
 		...
 
 	The functions in the queue are checked for the type of the last return
@@ -64,7 +98,7 @@ type (
 
 // New creates a new function queue, that has the default ErrHandler STOP
 //
-// Use Add() for adding functions to the Queue and Run() for error handling and running a Queue.
+// Use Add() for adding functions to the Queue and Run() for running the Queue.
 func New() *Queue {
 	return &Queue{
 		arguments:  map[int][]interface{}{},
@@ -96,7 +130,7 @@ func (q *Queue) OnError(handler ErrHandler) *Queue {
 // The number and type signature of the arguments and piped return values must
 // match with the receiving function.
 //
-// More about valid queues: see Validate()
+// More about valid queues: see Check()
 // More about function calling: see Run()
 func (q *Queue) Add(function interface{}, arguments ...interface{}) *Queue {
 	q.functions = append(q.functions, reflect.ValueOf(function))
@@ -106,8 +140,8 @@ func (q *Queue) Add(function interface{}, arguments ...interface{}) *Queue {
 	return q
 }
 
-// Validate validates the function signatures and returns any errors
-func (q *Queue) Validate() (err error) {
+// Check checks if the function signatures and argument types match and returns any errors
+func (q *Queue) Check() (err error) {
 	var piped []reflect.Type
 	for i, _ := range q.functions {
 		piped, err = q.validateFn(i, piped)
@@ -243,10 +277,7 @@ func (q *Queue) validateFn(i int, piped []reflect.Type) (returns []reflect.Type,
 
 // Run runs the function queue.
 //
-// If validate is true, Validate() is called and if it returns an error
-// the queue will not be run and the error will be returned
-//
-// When the queue is run, every function in the queue is called with
+// In the run, every function in the queue is called with
 // its arguments. If one of the arguments is PIPE, PIPE is replaced
 // by the returned values of previous functions.
 //
@@ -258,13 +289,11 @@ func (q *Queue) validateFn(i int, piped []reflect.Type) (returns []reflect.Type,
 // If it returns an error, the queue is stopped and the error is returned.
 //
 // The default ErrHandler is STOP, which will stop the run on the first error.
-func (q *Queue) Run(validate bool) (err error) {
-	if validate {
-		err = q.Validate()
-		if err != nil {
-			return
-		}
-	}
+//
+// If there are any errors with the given function types and arguments, the errors
+// will no be very descriptive. In this cases use CheckAndRun() to see if there are any
+// errors in the function or argument types.
+func (q *Queue) Run() (err error) {
 	var vals = []reflect.Value{}
 	for i := range q.functions {
 		vals, err = q.pipeFn(i, vals)
@@ -276,6 +305,17 @@ func (q *Queue) Run(validate bool) (err error) {
 		}
 	}
 	return
+}
+
+// CheckAndRun first runs Check() to see, if there are any type errors in the
+// function signatures or arguments and returns them. Without such errors,
+// it then calls Run()
+func (q *Queue) CheckAndRun() (err error) {
+	err = q.Check()
+	if err != nil {
+		return err
+	}
+	return q.Run()
 }
 
 // calls the func at position i, with its arguments,

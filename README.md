@@ -7,6 +7,32 @@ Streamlining error handling and piping through a queue of go functions
 
 [![GoDoc](https://godoc.org/github.com/go-on/queue?status.png)](http://godoc.org/github.com/go-on/queue)
 
+Why
+---
+
+In go, sometimes you need to run a bunch of functions that return errors and/or results. You might end up writing stuff like this
+
+```
+err = fn1(...)
+
+if err != nil {
+   // handle error somehow
+}
+
+err = fn2(...)
+
+if err != nil {
+   // handle error somehow
+}
+
+...
+
+```
+
+a lot of times. This is especially annoying if you want to handle all errors the same way (e.g. return the first error).
+
+`queue` provides a way to call functions in a queue and collecting the errors via a predefined or custom error handler. The predefined handler returns on the first error and custom error handlers might be used to catch/handle some/all kinds of errors while keeping the queue running.
+
 Examples
 --------
 
@@ -57,8 +83,12 @@ func set(p *Person, m map[string]string, handler queue.ErrHandler) {
     if handler != nil {
         q.OnError(handler)
     }
-    // run the whole queue and validate it before running
-    err := q.Run(true)
+    // run the whole queue
+    err := q.Run()
+
+    // if you want a check for validity of the given functions and
+    // parameters before the run, use 
+    // err := q.CheckAndRun()
 
     // report, if there is an unhandled error
     if err != nil {

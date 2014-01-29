@@ -24,7 +24,7 @@ func TestNoErrors(t *testing.T) {
 	for i, tc := range testCases {
 		result = ""
 		q := tc.Q()
-		err := q.Run(true)
+		err := q.Run()
 		if err != nil {
 			t.Errorf("in testCases[%d]: should get no error, but got: %s", i, err)
 		}
@@ -45,7 +45,7 @@ func TestErrors(t *testing.T) {
 	for i, tc := range testCasesErr {
 		result = ""
 		ti := tc.Q()
-		err := ti.Run(true)
+		err := ti.Run()
 		if err == nil {
 			t.Errorf("in testCasesErr[%d] should get an error, but got none", i)
 		}
@@ -59,7 +59,7 @@ func TestErrors(t *testing.T) {
 }
 
 func TestNoFunc(t *testing.T) {
-	err := New().Add(setToX).Add(5).Run(true)
+	err := New().Add(setToX).Add(5).CheckAndRun()
 	if err == nil {
 		t.Errorf("expecting error, but got none")
 	}
@@ -197,7 +197,7 @@ func TestValidateFn(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		err := tt.Validate()
+		err := tt.Check()
 		if err == nil && tt.shouldErr {
 			t.Errorf("should raise error, but does not", i)
 			continue
@@ -218,7 +218,7 @@ func TestValidateFn(t *testing.T) {
 }
 
 func TestWrongParams(t *testing.T) {
-	err := New().Add(set, 4).Add(set, "hi").Run(true)
+	err := New().Add(set, 4).Add(set, "hi").CheckAndRun()
 	if err == nil {
 		t.Errorf("expecting error, but got none")
 	}
@@ -241,7 +241,7 @@ func TestWrongParams(t *testing.T) {
 }
 
 func TestPanic(t *testing.T) {
-	err := New().Add(doPanic).Run(false)
+	err := New().Add(doPanic).Run()
 	if err == nil {
 		t.Errorf("expecting error, but got none")
 	}
@@ -264,7 +264,7 @@ func TestPanic(t *testing.T) {
 
 func TestMethod(t *testing.T) {
 	s := &S{4}
-	err := New().Add(s.Add, 4).Add(s.Add, 7).Run(true)
+	err := New().Add(s.Add, 4).Add(s.Add, 7).Run()
 
 	if s.Get() != 15 {
 		t.Errorf("wrong result: expected 15, got %d", s.Get())
@@ -280,7 +280,7 @@ func TestInterface(t *testing.T) {
 	a := func(s fmt.Stringer) {
 		v = s.String()
 	}
-	err := New().Add(bytes.NewBufferString, "hi").Add(a, PIPE).Run(true)
+	err := New().Add(bytes.NewBufferString, "hi").Add(a, PIPE).Run()
 
 	if err != nil {
 		t.Errorf("expecting no error, but got: %s", err.Error())
@@ -315,7 +315,7 @@ func TestPipeNoErrors(t *testing.T) {
 	for i, tc := range testsPipe {
 		result = ""
 		ti := tc.Q()
-		err := ti.Run(true)
+		err := ti.Run()
 		if err != nil {
 			t.Errorf("in testsPipe[%d]: should get no error, but got: %s", i, err)
 		}
@@ -342,7 +342,7 @@ func TestPipeErrors(t *testing.T) {
 	for i, tc := range testsPipeErr {
 		result = ""
 		ti := tc.Q()
-		err := ti.Run(true)
+		err := ti.Run()
 		if err == nil {
 			t.Errorf("in testsPipeErr[%d] should get an error, but got none", i)
 		}
@@ -365,7 +365,7 @@ func TestPipeMethod(t *testing.T) {
 	err := New().
 		Add(s.Get).
 		Add(fn, PIPE).
-		Add(s.Set, PIPE).Run(true)
+		Add(s.Set, PIPE).Run()
 
 	if s.Get() != 12 {
 		t.Errorf("wrong result: expected 12, got %d", s.Get())
@@ -382,7 +382,7 @@ func TestCatchHandle(t *testing.T) {
 		Add(s.Set, 30).
 		Add(s.Add, 6).
 		Add(s.Add, 10).
-		OnError(IGNORE).Run(true)
+		OnError(IGNORE).Run()
 
 	if err != nil {
 		t.Errorf("expecting no returned error, but got %s", err.Error())
@@ -404,7 +404,7 @@ func TestCatchHandleNot(t *testing.T) {
 		Add(s.Set, 30).
 		Add(s.Add, 6).
 		Add(s.Add, 10).
-		Run(true)
+		Run()
 
 	if err == nil {
 		t.Errorf("expecting returned error, but got none")

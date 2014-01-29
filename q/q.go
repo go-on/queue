@@ -9,20 +9,20 @@
 
 	Example 1
 
-		err := New().Add(get, "Age", m).Add(strconv.Atoi, PIPE).Add(p.SetAge, PIPE).Run(true)
+		err := New().Add(get, "Age", m).Add(strconv.Atoi, PIPE).Add(p.SetAge, PIPE).Run()
 
 	would be rewritten to
 
-		err := Q(get, "Age", m)(strconv.Atoi, V)(p.SetAge, V).Run(true)
+		err := Q(get, "Age", m)(strconv.Atoi, V)(p.SetAge, V).Run()
 
 
 	Example 2
 
-		OnError(IGNORE).Add(get, "Age", m).Add(strconv.Atoi, PIPE).Add(p.SetAge, PIPE).Run(true)
+		OnError(IGNORE).Add(get, "Age", m).Add(strconv.Atoi, PIPE).Add(p.SetAge, PIPE).CheckAndRun()
 
 	would be rewritten to
 
-		Err(IGNORE)(get, "Age", m)(strconv.Atoi, V)(p.SetAge, V).Run(true)
+		Err(IGNORE)(get, "Age", m)(strconv.Atoi, V)(p.SetAge, V).CheckAndRun()
 
 */
 package q
@@ -52,8 +52,17 @@ type (
 )
 
 // Run runs the queue
-func (q QFunc) Run(validate bool) error {
-	var r = &run{validate: validate}
+func (q QFunc) Run() error {
+	var r = &run{validate: false}
+	q(r)
+	return r.err
+}
+
+// CheckAndRun first checks if there are any type errors in the
+// function signatures or arguments and returns them. Without such errors,
+// it is running the queue, like Run()
+func (q QFunc) CheckAndRun() error {
+	var r = &run{validate: true}
 	q(r)
 	return r.err
 }
@@ -70,7 +79,11 @@ func mkQFunc(q *queue.Queue) QFunc {
 	p = func(fn interface{}, i ...interface{}) QFunc {
 		switch v := fn.(type) {
 		case *run:
-			v.err = q.Run(v.validate)
+			if v.validate {
+				v.err = q.CheckAndRun()
+			} else {
+				v.err = q.Run()
+			}
 		case *onError:
 			q.OnError(v.handler)
 		default:
