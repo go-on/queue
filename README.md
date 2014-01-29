@@ -140,32 +140,29 @@ Shortcuts
 
 A package with shortcuts that has a more compact syntax and is better includable with dot (.) is provided at github.com/go-on/queue/q
 
-That would shorten the above to
+Here an example for saving a User object, we got from json (excerpt)
+with the shortcuts of q. All other features of `queue` are also available in `q`.
 
 ```go
-func set(p *Person, m map[string]string, handler queue.ErrHandler) {
-    // create a new queue with the default error handler
-    _q := q.Q(get, "Name", m)(
-            p.SetName, q.V,
-        )(
-            get, "Age", m,
-        )(
-            strconv.Atoi, q.V,
-        )(
-            p.SetAge, q.V,
-        )(
-            fmt.Printf, "SUCCESS %#v\n\n", p,
-        )
+import "github.com/go-on/queue/q"
 
-    if handler != nil {
-        _q.OnError(handler)
-    }
-    err := _q.Run()
-    if err != nil {
-        fmt.Printf("ERROR %#v: %s\n\n", p, err)
-    }
+func SaveUser(w http.ResponseWriter, rq *http.Request) {
+    u := &User{}
+    q.Err(ErrorHandler(w))(       // handle all errors with the given handler
+        ioutil.ReadAll, rq.Body,  // read json (returns json and error)
+    )(
+        json.Unmarshal, q.V, u,   // unmarshal json from above (returns error)
+    )(
+        u.Validate,               // validate the user (returns error)
+    )(
+        u.Save,                   // save the user (returns error)
+    )(
+        ok, w,                    // send the "ok" message (returns no error)
+    ).Run()
 }
 ```
+
+ErrorHandler returns a general error handler that does the right thing (i.e. write input errors to the client and store other errors for further investigation). It lets the chain stop on the first error. `ok` is a function that writes to client that an action was successful, no matter what action it was. And the user struct has specific methods for validation and saving.
 
 
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/go-on/queue/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
