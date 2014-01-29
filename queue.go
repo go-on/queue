@@ -6,6 +6,10 @@
 	Package queue provides a queue of function calls.
 	It allows streamlined error handling and piping of returned values.
 
+	This package is considered stable and ready for production.
+
+	Motivation:
+
 	In go, sometimes you need to run a bunch of functions that return errors and/or results. You might
 	end up writing stuff like this
 

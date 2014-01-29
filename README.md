@@ -7,6 +7,11 @@ Streamlining error handling and piping through a queue of go functions
 
 [![GoDoc](https://godoc.org/github.com/go-on/queue?status.png)](http://godoc.org/github.com/go-on/queue)
 
+Status
+------
+
+This package is stable and ready for production.
+
 Why
 ---
 
