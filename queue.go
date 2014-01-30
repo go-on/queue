@@ -3,8 +3,7 @@
 // license that can be found in the LICENSE file.
 
 /*
-	Package queue provides a queue of function calls.
-	It allows streamlined error handling and piping of returned values.
+	Package queue allows streamlined error handling and piping of returned values.
 
 	This package is considered stable and ready for production.
 	It requires Go >= 1.1.
