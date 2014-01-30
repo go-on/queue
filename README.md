@@ -43,6 +43,8 @@ a lot of times. This is especially annoying if you want to handle all errors the
 Examples
 --------
 
+(more can be found [here](https://github.com/go-on/queue/tree/master/examples) )
+
 ```go
 package main
 
