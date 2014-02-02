@@ -26,9 +26,10 @@ Do you have an example of, say, how one might make an HTTP request?
 import (
 	"encoding/json"
 	"fmt"
-	. "github.com/go-on/queue/q"
 	"io/ioutil"
 	"net/http"
+	"os"
+	. "github.com/go-on/queue/q"
 )
 
 type User struct {
@@ -90,7 +91,9 @@ func main() {
 		getBody, V,
 	)(
 		json.Unmarshal, V, user,
-	).CheckAndRun() // checks types before running, faster is Run()
+	).
+		LogErrorsTo(os.Stdout). // logs errors to Stdout
+		CheckAndRun()           // checks types before running, faster is Run()
 
 	if err != nil {
 		switch err.(type) {

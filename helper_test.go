@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"strconv"
 	//	"testing"
 )
 
@@ -22,6 +23,13 @@ type (
 		funcs  []testfunc
 		result string
 		errMsg string
+	}
+
+	testcaseFallback struct {
+		funcs    []testfunc
+		result   string
+		errMsg   string
+		position int
 	}
 )
 
@@ -46,6 +54,23 @@ func (tc testcaseErr) Q() *Queue {
 		q = tf.add(q)
 	}
 	return q
+}
+
+func (tc testcaseFallback) Q() *Queue {
+	q := New()
+	for _, tf := range tc.funcs {
+		q = tf.add(q)
+	}
+	return q
+}
+
+func newTFallback(result string, position int, errMsg string, fns ...testfunc) testcaseFallback {
+	return testcaseFallback{
+		funcs:    fns,
+		result:   result,
+		errMsg:   errMsg,
+		position: position,
+	}
 }
 
 func newT(result string, fns ...testfunc) testcase {
@@ -142,12 +167,27 @@ type S struct {
 	number int
 }
 
+type numError int
+
+func (n numError) Error() string {
+	return fmt.Sprintf("can't set to %d", int(n))
+}
+
 func (s *S) Set(i int) error {
 	if i == 5 {
-		return fmt.Errorf("can't set to 5")
+		//return fmt.Errorf("can't set to 5")
+		return numError(5)
 	}
 	s.number = i
 	return nil
+}
+
+func (s *S) SetString(str string) error {
+	i, err := strconv.Atoi(str)
+	if err != nil {
+		return err
+	}
+	return s.Set(i)
 }
 
 func (s *S) Get() int {

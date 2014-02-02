@@ -1,0 +1,40 @@
+{
+  "Exports": {
+    "Err": "func (github.com/go-on/queue.ErrHandler) QFunc",
+    "IGNORE": "queue.IGNORE",
+    "PANIC": "queue.PANIC",
+    "Q": "func (interface{},...interface{}) QFunc",
+    "QFunc": "type QFunc (interface{},...interface{}) QFunc",
+    "QFunc.CheckAndFallback": "(QFunc) CheckAndFallback()(int,error)",
+    "QFunc.CheckAndRun": "(QFunc) CheckAndRun() error",
+    "QFunc.Err": "(QFunc) Err(github.com/go-on/queue.ErrHandler) QFunc",
+    "QFunc.Fallback": "(QFunc) Fallback()(int,error)",
+    "QFunc.LogDebugTo": "(QFunc) LogDebugTo(io.Writer) QFunc",
+    "QFunc.LogErrorsTo": "(QFunc) LogErrorsTo(io.Writer) QFunc",
+    "QFunc.Run": "(QFunc) Run() error",
+    "STOP": "queue.STOP",
+    "V": "queue.PIPE",
+    "init": ""
+  },
+  "Imports": {
+    "github.com/go-on/queue.*Queue.Add": "(*Queue) Add(interface{},...interface{}) *Queue",
+    "github.com/go-on/queue.*Queue.Check": "(*Queue) Check() error",
+    "github.com/go-on/queue.*Queue.CheckAndFallback": "(*Queue) CheckAndFallback()(int,error)",
+    "github.com/go-on/queue.*Queue.CheckAndRun": "(*Queue) CheckAndRun() error",
+    "github.com/go-on/queue.*Queue.Fallback": "(*Queue) Fallback()(int,error)",
+    "github.com/go-on/queue.*Queue.LogDebugTo": "(*Queue) LogDebugTo(io.Writer) *Queue",
+    "github.com/go-on/queue.*Queue.LogErrorsTo": "(*Queue) LogErrorsTo(io.Writer) *Queue",
+    "github.com/go-on/queue.*Queue.OnError": "(*Queue) OnError(ErrHandler) *Queue",
+    "github.com/go-on/queue.*Queue.Run": "(*Queue) Run() error",
+    "github.com/go-on/queue.ErrHandler": "type ErrHandler interface {HandleError(error) error}",
+    "github.com/go-on/queue.IGNORE": "ErrHandlerFunc(func(err error) error { return nil })",
+    "github.com/go-on/queue.New": "func () *Queue",
+    "github.com/go-on/queue.OnError": "func (ErrHandler) *Queue",
+    "github.com/go-on/queue.PANIC": "ErrHandlerFunc(func(err error) error {\n\u0009panic(err.Error())\n\u0009return err\n})",
+    "github.com/go-on/queue.PIPE": "pipe{}",
+    "github.com/go-on/queue.Queue": "type Queue struct{}",
+    "github.com/go-on/queue.STOP": "ErrHandlerFunc(func(err error) error { return err })",
+    "github.com/go-on/queue.init": ""
+  },
+  "Path": "github.com/go-on/queue/q"
+}

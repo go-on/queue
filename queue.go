@@ -78,13 +78,18 @@
 	the argument list of the next function at the position of the pseudo argument PIPE.
 	However, if the last return value is an error, it will be omitted.
 
+	There is also a different running mode invoked by the method Fallback() that runs the queue
+	until the first function returns no error.
+
 	A package with shortcuts that has a more compact syntax and is better includable with dot (.)
 	is provided at github.com/go-on/queue/q
 */
 package queue
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"reflect"
 )
 
@@ -97,16 +102,26 @@ type (
 		arguments map[int][]interface{}
 
 		errHandler ErrHandler
+
+		//logger Logger
+		logTarget io.Writer
+
+		logverbose bool
 	}
 )
 
-// New creates a new function queue, that has the default ErrHandler STOP
+// New creates a new function queue
 //
-// Use Add() for adding functions to the Queue and Run() for running the Queue.
+// Use Add() for adding functions to the Queue.
+//
+// Use OnError() to set a custom error handler.
+//
+// The default error handler is set by the runner function, Run() or Fallback().
+//
+// Use one of these runner functions to run the queue.
 func New() *Queue {
 	return &Queue{
-		arguments:  map[int][]interface{}{},
-		errHandler: STOP,
+		arguments: map[int][]interface{}{},
 	}
 }
 
@@ -114,7 +129,7 @@ func New() *Queue {
 // errHandler is set to the given handler
 //
 // More about adding functions to the Queue: see Add().
-// More about error handling and running a Queue: see Run().
+// More about error handling and running a Queue: see Run() and Fallback().
 func OnError(handler ErrHandler) *Queue {
 	return &Queue{
 		arguments:  map[int][]interface{}{},
@@ -122,10 +137,57 @@ func OnError(handler ErrHandler) *Queue {
 	}
 }
 
-// OnError sets the errHandler and may be chained
+// OnError sets the errHandler and may be chained.
+//
+// If OnError() is called multiple times, only the last
+// call has any effect.
 func (q *Queue) OnError(handler ErrHandler) *Queue {
 	q.errHandler = handler
 	return q
+}
+
+// LogErrorsTo logs errors and panics to the given io.Writer
+//
+// LogErrorsTo() is an alternative to LogDebugTo() and they should no be called both, because they are both
+// changing the logging target and verbosity.
+//
+// If more than one logging setter is called, only the last one
+// has any effect.
+func (q *Queue) LogErrorsTo(logTarget io.Writer) *Queue {
+	q.logTarget = logTarget
+	q.logverbose = false
+	return q
+}
+
+// LogDebugTo logs debugging information to the given io.Writer
+//
+// LogDebugTo() is an alternative to LogErrorsTo() and they should no be called both, because they are both
+// changing the logging target and verbosity.
+//
+// If more than one logging setter is called, only the last one
+// has any effect.
+func (q *Queue) LogDebugTo(logTarget io.Writer) *Queue {
+	q.logTarget = logTarget
+	q.logverbose = true
+	return q
+}
+
+func (q *Queue) logPanic(format string, a ...interface{}) {
+	if q.logTarget != nil {
+		fmt.Fprintf(q.logTarget, "\nPANIC: "+format, a...)
+	}
+}
+
+func (q *Queue) logError(format string, a ...interface{}) {
+	if q.logTarget != nil {
+		fmt.Fprintf(q.logTarget, "\nERROR: "+format, a...)
+	}
+}
+
+func (q *Queue) logDebug(format string, a ...interface{}) {
+	if q.logTarget != nil && q.logverbose {
+		fmt.Fprintf(q.logTarget, "\nDEBUG: "+format, a...)
+	}
 }
 
 // Add adds the given function with optional arguments to the function queue
@@ -135,7 +197,7 @@ func (q *Queue) OnError(handler ErrHandler) *Queue {
 // match with the receiving function.
 //
 // More about valid queues: see Check()
-// More about function calling: see Run()
+// More about function calling: see Run() and Fallback()
 func (q *Queue) Add(function interface{}, arguments ...interface{}) *Queue {
 	q.functions = append(q.functions, reflect.ValueOf(function))
 	if len(arguments) > 0 {
@@ -237,6 +299,7 @@ func (q *Queue) validateFn(i int, piped []reflect.Type) (returns []reflect.Type,
 		invErr.Position = i
 		invErr.Type = fn.Type().String()
 		err = invErr
+		q.logPanic("[%d] %#v is no func", i, fn.Type().String())
 		return
 	}
 
@@ -260,6 +323,7 @@ func (q *Queue) validateFn(i int, piped []reflect.Type) (returns []reflect.Type,
 		invErr.Position = i
 		invErr.Type = fn.Type().String()
 		err = invErr
+		q.logPanic("[%d] %v Invalid arguments: %s", i, fn.Type().String(), err)
 		return
 	}
 
@@ -297,17 +361,100 @@ func (q *Queue) validateFn(i int, piped []reflect.Type) (returns []reflect.Type,
 // If there are any errors with the given function types and arguments, the errors
 // will no be very descriptive. In this cases use CheckAndRun() to see if there are any
 // errors in the function or argument types.
+//
+// Since no arguments are saved inside the queue, a queue might be run multiple times.
 func (q *Queue) Run() (err error) {
+	errHandler := q.errHandler
+	// default error handler is STOP
+	if errHandler == nil {
+		errHandler = STOP
+	}
 	var vals = []reflect.Value{}
 	for i := range q.functions {
 		vals, err = q.pipeFn(i, vals)
 		if err != nil {
-			err = q.errHandler.HandleError(err)
+			err2 := errHandler.HandleError(err)
+			q.logDebug("[E] %T(%#v) => %#v", errHandler, err, err2)
+			err = err2
 		}
 		if err != nil {
 			return
 		}
 	}
+	return
+}
+
+// Fallback runs the function queue similarly to Run() but has the following differences:
+//
+// - The first function call that returns no error finishes the run, returning the successful function and the error nil.
+//
+// - If an error happens the further processing of the queue depends on what the error handler returns. If the error handler returns nil, the queue continues to run. If the error handler returns an error the queue stops and the error is returned.
+//
+// - The default error handler is IGNORE, so that the run continues if an error happens.
+//
+// - If the last function in the queue ran and returned an error, this error will be returned, even if the ErrHandler catches it. The reason is that the last function is your final fallback, so you will want to get its error.
+//
+// Use cases:
+//
+// use
+//
+//     pos, err := New().
+//       Add(fn1, ...).
+//       Add(fn2, ...).
+//       Add(fn3, ...).
+//       Fallback()
+//
+// to have fn1, fn2, fn3 each called one after another, if the previous function call failed.
+// If none of these function did run successful, err is the error of fn3 and pos is 2.
+//
+// If you have some kind of errors that should not be ignored, but stop the queue, you will need
+// a custom error handler that returns a non nil error for these kinds of errors. Then you would use
+//
+//      pos, err := OnError(myErrHandler).
+//       Add(fn1, ...).
+//       Add(fn2, ...).
+//       Add(fn3, ...).
+//       Fallback()
+//
+// Now any error is passed to myErrHandler.HandleError(). If this method returns an error, the queue
+// run is stopped and the error is returned.
+//
+// Since no arguments are saved inside the queue, a queue might be run in Fallback mode multiple times.
+func (q *Queue) Fallback() (pos int, err error) {
+	var vals = []reflect.Value{}
+	errHandler := q.errHandler
+	// default error handler is IGNORE
+	if errHandler == nil {
+		errHandler = IGNORE
+	}
+
+	var errHandled error
+	for i := range q.functions {
+		pos = i
+		vals, err = q.pipeFn(i, vals)
+		// if the function did not err, it could handle the input
+		// and therefor we will return because of success
+		if err == nil {
+			// return the last function that did not return an error
+			return
+		}
+		// some error happened.
+		// now the error handler gets a chance to "fix" some errors
+		// it does that the same way the error handlers work in other runner functions:
+		// if the error handler returns an error that is not nil, it interrupts the queue
+		// otherwise the queue is continued and the error is "catched"
+		// the default error handler is IGNORE
+		// we need a different variable errHandled to be able to return the
+		// original error if the last function call, even it was catched
+		errHandled = errHandler.HandleError(err)
+		q.logDebug("[E] %T(%#v) => %#v", errHandler, err, errHandled)
+		if errHandled != nil {
+			// let the error handler transform the error into some other and return that
+			err = errHandled
+			return
+		}
+	}
+	// return the last function and the returned error from the last function call
 	return
 }
 
@@ -320,6 +467,17 @@ func (q *Queue) CheckAndRun() (err error) {
 		return err
 	}
 	return q.Run()
+}
+
+// CheckAndFallback first runs Check() to see, if there are any type errors in the
+// function signatures or arguments and returns them. Without such errors,
+// it then calls Fallback()
+func (q *Queue) CheckAndFallback() (i int, err error) {
+	err = q.Check()
+	if err != nil {
+		return
+	}
+	return q.Fallback()
 }
 
 // calls the func at position i, with its arguments,
@@ -351,13 +509,22 @@ func (q *Queue) pipeFn(i int, piped []reflect.Value) (returns []reflect.Value, e
 			ce.Type = fn.Type().String()
 			ce.Position = i
 			err = ce
+			q.logPanic("[%d] Panic in %v: %v", i, fn.Type().String(), e)
 		}
 	}()
+
 	returns = fn.Call(toValues(all))
 	num := fn.Type().NumOut()
 	if num == 0 {
 		return
 	}
+
+	q.logDebug("[%d] %v{}(%s) => %s",
+		i,
+		fn.Type().String(),
+		argReturnStr(all...),
+		argReturnStr(toInterfaces(returns)...),
+	)
 
 	last := num - 1
 	// TODO: there should be a better way to do this
@@ -366,21 +533,44 @@ func (q *Queue) pipeFn(i int, piped []reflect.Value) (returns []reflect.Value, e
 		returns = returns[:last]
 		if !res.IsNil() {
 			err = res.Interface().(error)
+			if !q.logverbose {
+				q.logError("[%d] %v => error: %#v",
+					i, fn.Type().String(), err,
+				)
+			}
 		}
 	}
 	return
+}
+
+func argReturnStr(args ...interface{}) string {
+	var bf bytes.Buffer
+
+	for i, arg := range args {
+		if i > 0 {
+			fmt.Fprintf(&bf, ", ")
+		}
+		fmt.Fprintf(&bf, "%#v", arg)
+	}
+	return bf.String()
 }
 
 type (
 	// Each Queue has an error handler that is called if
 	// a function returns an error.
 	//
-	// The default error handler is STOP.
+	// The default error handler when calling Run() is STOP and when calling Fallback() is IGNORE.
+	// The error handler PANIC might be chosen to panic on the first error (some kind of "Must" for every
+	// function call).
 	ErrHandler interface {
-		// HandleError receives a non nil error and either
-		// handles it and returns nil or can't handle the error.
-		// Then it must return the original error or some
-		// other not nil error
+		// HandleError receives a non nil error and may handle it.
+		// An error is considered not handled, if HandleError() returns the given error.
+		// An error is considered handled, if HandleError() returns something other than
+		// the given error.
+		// An error is considered catched, if HandleError() returns nil.
+		// If HandleError() catches an error, the queue run will continue.
+		// Otherwise the queue will be stopped and the error is returned.
+		// See Run() and Fallback() for more details about returning errors.
 		HandleError(error) error
 	}
 
@@ -395,6 +585,12 @@ var (
 	STOP = ErrHandlerFunc(func(err error) error { return err })
 	// ErrHandler, ignores all errors
 	IGNORE = ErrHandlerFunc(func(err error) error { return nil })
+
+	// ErrHandler, panics on the first error
+	PANIC = ErrHandlerFunc(func(err error) error {
+		panic(err.Error())
+		return err
+	})
 )
 
 // an internal type used to identify the pseudo parameter PIPE
@@ -417,7 +613,7 @@ type InvalidFunc struct {
 }
 
 func (i InvalidFunc) Error() string {
-	return fmt.Sprintf("%d. function %#v is invalid:\n\t%s", i.Position+1, i.Type, i.ErrorMessage)
+	return fmt.Sprintf("[%d] function %#v is invalid:\n\t%s", i.Position+1, i.Type, i.ErrorMessage)
 }
 
 // Error returned if a function is not valid
@@ -433,10 +629,10 @@ type InvalidArgument struct {
 }
 
 func (i InvalidArgument) Error() string {
-	return fmt.Sprintf("%d. function %#v gets invalid argument:\n\t%s", i.Position+1, i.Type, i.ErrorMessage)
+	return fmt.Sprintf("[%d] function %#v gets invalid argument:\n\t%s", i.Position+1, i.Type, i.ErrorMessage)
 }
 
-// Error returned if a function resulted in a panic
+// Error returned if a function call triggered a panic
 type CallPanic struct {
 	// position of the function in the queue
 	Position int
@@ -452,7 +648,7 @@ type CallPanic struct {
 }
 
 func (c CallPanic) Error() string {
-	return fmt.Sprintf("%d. function %#v panicked (was called with %#v):\n\t%s",
+	return fmt.Sprintf("[%d] function %#v panicked (was called with %#v):\n\t%s",
 		c.Position+1, c.Type, c.Params, c.ErrorMessage)
 }
 

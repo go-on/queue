@@ -30,6 +30,8 @@
 package q
 
 import (
+	"io"
+
 	"github.com/go-on/queue"
 )
 
@@ -37,12 +39,24 @@ var (
 	V      = queue.PIPE
 	STOP   = queue.STOP
 	IGNORE = queue.IGNORE
+	PANIC  = queue.PANIC
 )
 
 type (
 	run struct {
 		validate bool
 		err      error
+	}
+
+	fallback struct {
+		validate bool
+		err      error
+		pos      int
+	}
+
+	log struct {
+		writer  io.Writer
+		verbose bool
 	}
 
 	onError struct {
@@ -69,6 +83,30 @@ func (q QFunc) CheckAndRun() error {
 	return r.err
 }
 
+func (q QFunc) CheckAndFallback() (int, error) {
+	var r = &fallback{validate: true}
+	q(r)
+	return r.pos, r.err
+}
+
+func (q QFunc) Fallback() (int, error) {
+	var r = &fallback{}
+	q(r)
+	return r.pos, r.err
+}
+
+func (q QFunc) LogDebugTo(w io.Writer) QFunc {
+	var r = &log{writer: w, verbose: true}
+	q(r)
+	return q
+
+}
+func (q QFunc) LogErrorsTo(w io.Writer) QFunc {
+	var r = &log{writer: w}
+	q(r)
+	return q
+}
+
 // Err sets the ErrHandler of the queue
 func (q QFunc) Err(handler queue.ErrHandler) QFunc {
 	h := &onError{handler: handler}
@@ -88,6 +126,18 @@ func mkQFunc(q *queue.Queue) QFunc {
 			}
 		case *onError:
 			q.OnError(v.handler)
+		case *log:
+			if v.verbose {
+				q.LogDebugTo(v.writer)
+			} else {
+				q.LogErrorsTo(v.writer)
+			}
+		case *fallback:
+			if v.validate {
+				v.pos, v.err = q.CheckAndFallback()
+			} else {
+				v.pos, v.err = q.Fallback()
+			}
 		default:
 			q.Add(fn, i...)
 		}

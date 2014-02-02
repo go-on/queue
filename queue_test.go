@@ -58,6 +58,170 @@ func TestErrors(t *testing.T) {
 	}
 }
 
+var testCasesFallback = []testcaseFallback{
+	newTFallback("c", 2, "setErr", newF(setErr, "a"), newF(setErr, "b"), newF(set, "c")),
+	newTFallback("b", 1, "setErr", newF(setErr, "a"), newF(set, "b"), newF(set, "c")),
+	newTFallback("b", 1, "setErr", newF(setErr, "a"), newF(set, "b"), newF(setErr, "c")),
+}
+
+func TestFallback(t *testing.T) {
+	for i, tc := range testCasesFallback {
+		result = ""
+		ti := tc.Q()
+		pos, err := ti.CheckAndFallback()
+		if err != nil {
+			t.Errorf("in testCasesFallback[%d] should get no error, but got: %s", i, err)
+		}
+
+		if pos != tc.position {
+			t.Errorf("in testCasesFallback[%d] pos should be %d but is %d", tc.position, pos)
+		}
+	}
+}
+
+func TestFallbackCheck(t *testing.T) {
+	s := &S{}
+	_, err := New().Add(s.Set, 5).Add(s.SetString, PIPE).CheckAndFallback()
+	if err == nil {
+		t.Errorf("should return error, but returns nil")
+	}
+
+	_, ok := err.(InvalidArgument)
+
+	if !ok {
+		t.Errorf("error should be of type InvalidArgument, but is %T", err)
+	}
+}
+
+/*
+TODO
+
+have a function that returns two different errors for two situations
+and an error handler that catches some errors and returns others
+*/
+func TestFallbackErr(t *testing.T) {
+	s := &S{}
+
+	eh := ErrHandlerFunc(func(err error) error {
+		switch err.(type) {
+		case numError:
+			return err
+		default:
+			return nil
+		}
+
+	})
+	mkQueue := func(input string) *Queue {
+		return OnError(eh).Add(s.Set, input).Add(s.SetString, input)
+	}
+	i, err := mkQueue("6").Fallback()
+
+	if err != nil {
+		t.Errorf("simple fallback should return no error, but returns: %s", err)
+	}
+
+	if i != 1 {
+		t.Errorf("simple fallback expected handle at pos 1, got: %d", i)
+	}
+
+	i, err = mkQueue("5").Fallback()
+
+	if err == nil {
+		t.Errorf("fallback with unhandled error should the unhandled error, but returns nil")
+	}
+
+	_, ok := err.(numError)
+
+	if !ok {
+		t.Errorf("fallback with unhandled error should return error of type numError, but returns error of type %T", err)
+	}
+
+	if i != 1 {
+		t.Errorf("fallback with unhandled error expected handle at pos 1, got: %d", i)
+	}
+
+	i, err = New().Add(s.SetString, "5").Add(s.Set, 5).Fallback()
+
+	if err == nil {
+		t.Errorf("simple fallback should return error of the last function call, but returns nil")
+	}
+
+	if i != 1 {
+		t.Errorf("simple fallback expected handle at pos 1, got: %d", i)
+	}
+}
+
+func TestLog(t *testing.T) {
+	s := &S{}
+	tests := []testcaseErr{
+		newTErr(
+			`
+DEBUG: [0] func(string) error{}("a") => &errors.errorString{s:"setErr"}
+DEBUG: [E] queue.ErrHandlerFunc(&errors.errorString{s:"setErr"}) => &errors.errorString{s:"setErr"}`,
+			`
+ERROR: [0] func(string) error => error: &errors.errorString{s:"setErr"}`,
+			newF(setErr, "a"),
+		),
+
+		newTErr(
+			`
+DEBUG: [0] func(string) error{}("a") => &errors.errorString{s:"setErr"}
+DEBUG: [E] queue.ErrHandlerFunc(&errors.errorString{s:"setErr"}) => &errors.errorString{s:"setErr"}`,
+			`
+ERROR: [0] func(string) error => error: &errors.errorString{s:"setErr"}`,
+			newF(setErr, "a"),
+			newF(appendString, "b"),
+		),
+
+		newTErr(
+			`
+DEBUG: [0] func(string) error{}("a") => <nil>
+DEBUG: [1] func(string) error{}("b") => &errors.errorString{s:"appendStringErr"}
+DEBUG: [E] queue.ErrHandlerFunc(&errors.errorString{s:"appendStringErr"}) => &errors.errorString{s:"appendStringErr"}`,
+			`
+ERROR: [1] func(string) error => error: &errors.errorString{s:"appendStringErr"}`,
+			newF(set, "a"), newF(appendStringErr, "b")),
+
+		newTErr(
+			`
+DEBUG: [0] func(string) error{}("7") => <nil>
+DEBUG: [1] func() string{}() => "7"
+DEBUG: [2] func(string) (int, error){}("7") => 7, <nil>
+DEBUG: [3] func(int) error{}(7) => <nil>
+PANIC: [4] Panic in func(string) error: reflect: Call with too few input arguments
+DEBUG: [E] queue.ErrHandlerFunc(queue.CallPanic{Position:4, Type:"func(string) error", Params:[]interface {}{}, ErrorMessage:"reflect: Call with too few input arguments"}) => queue.CallPanic{Position:4, Type:"func(string) error", Params:[]interface {}{}, ErrorMessage:"reflect: Call with too few input arguments"}`,
+			`
+PANIC: [4] Panic in func(string) error: reflect: Call with too few input arguments`,
+			newF(set, "7"),
+			newF(read),
+			newF(strconv.Atoi, PIPE),
+			newF(s.Set, PIPE),
+			newF(set, PIPE),
+		),
+	}
+
+	for i, tc := range tests {
+		result = ""
+		ti := tc.Q()
+		var bf bytes.Buffer
+		ti.LogDebugTo(&bf)
+		ti.Run()
+
+		if bf.String() != tc.result {
+			t.Errorf("in testlog[%d] wrong debug log, expected\n\t%s\n\nbut got\n\t%s", i, tc.result, bf.String())
+		}
+
+		bf.Reset()
+		ti.LogErrorsTo(&bf)
+		ti.Run()
+
+		if bf.String() != tc.errMsg {
+			t.Errorf("in testlog[%d] wrong fatal log, expected\n\t%s\n\nbut got\n\t%s", i, tc.errMsg, bf.String())
+		}
+
+	}
+}
+
 func TestNoFunc(t *testing.T) {
 	err := New().Add(setToX).Add(5).CheckAndRun()
 	if err == nil {
@@ -260,6 +424,17 @@ func TestPanic(t *testing.T) {
 		t.Errorf("wrong error message: should contain 'panicked', but is: %#v", details.Error())
 	}
 
+}
+
+func TestPanicErrHandler(t *testing.T) {
+	defer func() {
+		e := recover()
+		if e == nil {
+			t.Errorf("should panic, but does not")
+		}
+	}()
+
+	OnError(PANIC).Add(strconv.Atoi, "b").Run()
 }
 
 func TestMethod(t *testing.T) {
