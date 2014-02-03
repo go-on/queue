@@ -156,42 +156,42 @@ func TestLog(t *testing.T) {
 	tests := []testcaseErr{
 		newTErr(
 			`
-DEBUG: [0] func(string) error{}("a") => &errors.errorString{s:"setErr"}
-DEBUG: [E] queue.ErrHandlerFunc(&errors.errorString{s:"setErr"}) => &errors.errorString{s:"setErr"}`,
+logtest - DEBUG: [0] func(string) error{}("a") => &errors.errorString{s:"setErr"}
+logtest - DEBUG: [E] queue.ErrHandlerFunc(&errors.errorString{s:"setErr"}) => &errors.errorString{s:"setErr"}`,
 			`
-ERROR: [0] func(string) error => error: &errors.errorString{s:"setErr"}`,
+logtest - ERROR: [0] func(string) error => error: &errors.errorString{s:"setErr"}`,
 			newF(setErr, "a"),
 		),
 
 		newTErr(
 			`
-DEBUG: [0] func(string) error{}("a") => &errors.errorString{s:"setErr"}
-DEBUG: [E] queue.ErrHandlerFunc(&errors.errorString{s:"setErr"}) => &errors.errorString{s:"setErr"}`,
+logtest - DEBUG: [0] func(string) error{}("a") => &errors.errorString{s:"setErr"}
+logtest - DEBUG: [E] queue.ErrHandlerFunc(&errors.errorString{s:"setErr"}) => &errors.errorString{s:"setErr"}`,
 			`
-ERROR: [0] func(string) error => error: &errors.errorString{s:"setErr"}`,
+logtest - ERROR: [0] func(string) error => error: &errors.errorString{s:"setErr"}`,
 			newF(setErr, "a"),
 			newF(appendString, "b"),
 		),
 
 		newTErr(
 			`
-DEBUG: [0] func(string) error{}("a") => <nil>
-DEBUG: [1] func(string) error{}("b") => &errors.errorString{s:"appendStringErr"}
-DEBUG: [E] queue.ErrHandlerFunc(&errors.errorString{s:"appendStringErr"}) => &errors.errorString{s:"appendStringErr"}`,
+logtest - DEBUG: [0] func(string) error{}("a") => <nil>
+logtest - DEBUG: [1] func(string) error{}("b") => &errors.errorString{s:"appendStringErr"}
+logtest - DEBUG: [E] queue.ErrHandlerFunc(&errors.errorString{s:"appendStringErr"}) => &errors.errorString{s:"appendStringErr"}`,
 			`
-ERROR: [1] func(string) error => error: &errors.errorString{s:"appendStringErr"}`,
+logtest - ERROR: [1] func(string) error => error: &errors.errorString{s:"appendStringErr"}`,
 			newF(set, "a"), newF(appendStringErr, "b")),
 
 		newTErr(
 			`
-DEBUG: [0] func(string) error{}("7") => <nil>
-DEBUG: [1] func() string{}() => "7"
-DEBUG: [2] func(string) (int, error){}("7") => 7, <nil>
-DEBUG: [3] func(int) error{}(7) => <nil>
-PANIC: [4] Panic in func(string) error: reflect: Call with too few input arguments
-DEBUG: [E] queue.ErrHandlerFunc(queue.CallPanic{Position:4, Type:"func(string) error", Params:[]interface {}{}, ErrorMessage:"reflect: Call with too few input arguments"}) => queue.CallPanic{Position:4, Type:"func(string) error", Params:[]interface {}{}, ErrorMessage:"reflect: Call with too few input arguments"}`,
+logtest - DEBUG: [0] func(string) error{}("7") => <nil>
+logtest - DEBUG: [1] func() string{}() => "7"
+logtest - DEBUG: [2] func(string) (int, error){}("7") => 7, <nil>
+logtest - DEBUG: [3] func(int) error{}(7) => <nil>
+logtest - PANIC: [4] Panic in func(string) error: reflect: Call with too few input arguments
+logtest - DEBUG: [E] queue.ErrHandlerFunc(queue.CallPanic{Position:4, Type:"func(string) error", Params:[]interface {}{}, ErrorMessage:"reflect: Call with too few input arguments", Name:""}) => queue.CallPanic{Position:4, Type:"func(string) error", Params:[]interface {}{}, ErrorMessage:"reflect: Call with too few input arguments", Name:""}`,
 			`
-PANIC: [4] Panic in func(string) error: reflect: Call with too few input arguments`,
+logtest - PANIC: [4] Panic in func(string) error: reflect: Call with too few input arguments`,
 			newF(set, "7"),
 			newF(read),
 			newF(strconv.Atoi, PIPE),
@@ -203,6 +203,7 @@ PANIC: [4] Panic in func(string) error: reflect: Call with too few input argumen
 	for i, tc := range tests {
 		result = ""
 		ti := tc.Q()
+		ti.Name = "logtest"
 		var bf bytes.Buffer
 		ti.LogDebugTo(&bf)
 		ti.Run()
@@ -602,4 +603,88 @@ func TestCatchHandleNot(t *testing.T) {
 	if s.Get() != 30 {
 		t.Errorf("wrong value, expecting 30, but got %d", s.Get())
 	}
+}
+
+func TestTee(t *testing.T) {
+	s := &S{}
+	var bf bytes.Buffer
+	err :=
+		New().Add(
+			set,
+			"9",
+		).Add(
+			read,
+		).Tee(
+			RUN,
+			New().Add(
+				strconv.Atoi,
+				PIPE,
+			).Add(
+				fmt.Fprintf,
+				&bf,
+				"number is: %d",
+				PIPE,
+			),
+		).Tee(
+			s.SetString,
+			PIPE,
+		).Run()
+
+	if err != nil {
+		t.Errorf("expecting no error, but got: %s", err)
+	}
+
+	expected := "number is: 9"
+	if bf.String() != expected {
+		t.Errorf("expecting buffer to be %#v, but is %#v", expected, bf.String())
+	}
+
+	if s.number != 9 {
+		t.Errorf("expecting s.number to be 9, but is %d", s.number)
+	}
+}
+
+func TestFeed(t *testing.T) {
+	s := &S{}
+	var bf bytes.Buffer
+	q1 := New().Add(
+		strconv.Atoi,
+		PIPE,
+	).Add(
+		fmt.Fprintf,
+		&bf,
+		"number is: %d",
+		PIPE,
+	)
+
+	q2 := New().Add(
+		s.SetString,
+		PIPE,
+	)
+	err :=
+		New().Add(
+			set,
+			"9",
+		).Add(
+			read,
+		).Feed(
+			q1, q2,
+		).Run()
+
+	q1.Run()
+	q2.Run()
+
+	if err != nil {
+		t.Errorf("expecting no error, but got: %s", err)
+	}
+
+	expected := "number is: 9"
+	if bf.String() != expected {
+		t.Errorf("expecting buffer to be %#v, but is %#v", expected, bf.String())
+	}
+
+	if s.number != 9 {
+		t.Errorf("expecting s.number to be 9, but is %d", s.number)
+	}
+
 }
