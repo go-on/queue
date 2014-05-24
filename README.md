@@ -10,7 +10,7 @@ Streamlined error handling and piping through a queue of go functions
 Status
 ------
 100% test coverage.
-This package is considered stable and ready for production.
+This API is considered stable.
 
 Go >= 1.1 required
 
@@ -141,6 +141,8 @@ Shortcuts
 ---------
 
 A package with shortcuts that has a more compact syntax and is better includable with dot (.) is provided at github.com/go-on/queue/q
+
+It is work in progress and does not have 100% test coverage yet.
 
 Here an example for saving a User object, we got from json (excerpt)
 with the shortcuts of q. All other features of `queue` are also available in `q`.

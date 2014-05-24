@@ -1,4 +1,4 @@
-# Feb 06, 2014
+# May 24, 2014
 Released v2.0 that has breaking changes in the Fallback() methods and has the following additional features:
 
 - naming of queues and calls
@@ -10,7 +10,8 @@ Released v2.0 that has breaking changes in the Fallback() methods and has the fo
 - Sub() method to embed another queue
 - Get(), Set(), Value(), Collect() pseudo arguments to get values in and out of the pipe
 
-The queue library is considered feature complete.
+The queue library is considered feature complete and stable.
+The shortcuts q library is not considered stable yet.
 
 # Feb 02, 2014
 
