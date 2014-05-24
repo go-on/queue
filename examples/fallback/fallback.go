@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 
 	"github.com/go-on/queue"
@@ -33,15 +32,15 @@ func main() {
 		fmt.Printf("\n---- CODE %#v\n", code)
 		l := &Locale{}
 
-		_, err := Err(eh)(
-			l.SetByLanguage, code,
+		err := Err(eh)(
+			Get, &code,
 		)(
-			l.SetByCountry, code,
-		)(
-			l.SetDefault,
-		).
-			LogDebugTo(os.Stdout).
-			Fallback()
+			l.Set, Fallback(
+				Q(SetByLanguage, V),
+				Q(SetByCountry, V),
+				Q(SetDefault),
+			),
+		).Run()
 
 		// fmt.Printf("\nCode %s ", code)
 		if err != nil {
@@ -82,6 +81,11 @@ type Locale struct {
 	Language, Country string
 }
 
+func (l *Locale) Set(country, language string) {
+	l.Language = language
+	l.Country = country
+}
+
 type InvalidCode struct {
 	msg string
 }
@@ -92,7 +96,7 @@ func (i InvalidCode) Error() string {
 
 var codeRegex = regexp.MustCompile("^([a-z]{2})?_?([A-Z]{2})$")
 
-func (l *Locale) splitCode(code string) (lang, country string, err error) {
+func splitCode(code string) (lang, country string, err error) {
 	m := codeRegex.FindSubmatch([]byte(code))
 
 	switch len(m) {
@@ -108,48 +112,64 @@ func (l *Locale) splitCode(code string) (lang, country string, err error) {
 	return
 }
 
-func (l *Locale) SetByCountry(code string) error {
-	_, country, err := l.splitCode(code)
-	if err != nil {
-		return err
-	}
+func getCountry(country string) (c string, err error) {
 	c, has := countries[country]
 	if !has {
-		return fmt.Errorf("can't find country: %#v", country)
+		err = fmt.Errorf("can't find count: %#v", country)
+		return
 	}
-
-	lang, hasDefault := countriesDefaultLanguage[country]
-	if !hasDefault {
-		return fmt.Errorf("can't find default language for country: %#v", c)
-	}
-
-	l.Country = c
-	l.Language = languages[lang]
-	return nil
+	return
 }
 
-func (l *Locale) SetByLanguage(code string) error {
-	lang, country, err := l.splitCode(code)
+func SetByCountry(code string) (country string, language string, err error) {
+	// fmt.Printf("SetByCountry: %#v\n", code)
+	_, count, err := splitCode(code)
 	if err != nil {
-		return err
+		return
+	}
+
+	c, err2 := getCountry(count)
+	if err2 != nil {
+		err = err2
+		return
+	}
+
+	lang, hasDefault := countriesDefaultLanguage[count]
+	if !hasDefault {
+		err = fmt.Errorf("can't find default language for count: %#v", c)
+		return
+	}
+
+	country = c
+	language = languages[lang]
+	return
+}
+
+func SetByLanguage(code string) (country string, language string, err error) {
+	// fmt.Printf("SetByLanguage: %#v\n", code)
+	lang, count, err := splitCode(code)
+	if err != nil {
+		return
 	}
 
 	la, hasLang := languages[lang]
 	if !hasLang {
-		return fmt.Errorf("can't find language: %#v", lang)
+		err = fmt.Errorf("can't find language: %#v", lang)
+		return
 	}
 
-	l.Language = la
-	c, has := countries[country]
+	language = la
+	c, has := countries[count]
 	if !has {
-		country = languagesDefaultCountries[lang]
-		c = countries[country]
+		count = languagesDefaultCountries[lang]
+		c = countries[count]
 	}
-	l.Country = c
+	country = c
 
-	return nil
+	return
 }
 
-func (l *Locale) SetDefault() {
-	l.SetByLanguage("en_US")
+func SetDefault() (country string, language string, err error) {
+	// fmt.Println("SetDefault")
+	return SetByLanguage("en_US")
 }

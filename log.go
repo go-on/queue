@@ -32,8 +32,8 @@ func (q *Queue) LogDebugTo(logTarget io.Writer) *Queue {
 }
 
 func (q *Queue) logprefix() (prefix string) {
-	if q.Name != "" {
-		return q.Name + " - "
+	if q.name != "" {
+		return q.name + " - "
 	}
 	return
 }

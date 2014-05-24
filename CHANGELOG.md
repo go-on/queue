@@ -1,3 +1,17 @@
+# Feb 06, 2014
+Released v2.0 that has breaking changes in the Fallback() methods and has the following additional features:
+
+- naming of queues and calls
+- Call() to pass calls as arguments that are called while running the queue as
+  alternative to pipes
+- Tee(), TeeAndRun(), TeeAndFallback() to allow to pipe into multiple calls 
+  and queues
+- Run() and Fallback() to pass queues as arguments
+- Sub() method to embed another queue
+- Get(), Set(), Value(), Collect() pseudo arguments to get values in and out of the pipe
+
+The queue library is considered feature complete.
+
 # Feb 02, 2014
 
 Released v1.1 that is 100% backward compatible with v1.0 and has the following additional features:

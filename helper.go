@@ -8,13 +8,30 @@ import (
 	"reflect"
 )
 
-// reflect.Value values based on a given slice of interface{} values
 func toValues(in []interface{}) []reflect.Value {
 	out := make([]reflect.Value, len(in))
 	for i := range in {
 		if in[i] != nil {
 			out[i] = reflect.ValueOf(in[i])
+		} else {
+			out[i] = reflect.ValueOf(&in[i]).Elem()
 		}
+	}
+	return out
+}
+
+func toTypes(in []interface{}) []reflect.Type {
+	out := make([]reflect.Type, len(in))
+	for i := range in {
+		//if in[i] != nil {
+		out[i] = reflect.TypeOf(in[i])
+		/*
+			} else {
+				out[i] = reflect.TypeOf(&in[i]).Elem()
+				// out[i] = reflect.TypeOf(nil)
+			}
+		*/
+
 	}
 	return out
 }
@@ -24,7 +41,11 @@ func toValues(in []interface{}) []reflect.Value {
 func toInterfaces(in []reflect.Value) []interface{} {
 	out := make([]interface{}, len(in))
 	for i, vl := range in {
+		//		if vl.IsNil() {
+		//		out[i] = nil
+		//} else {
 		out[i] = vl.Interface()
+		//}
 	}
 	return out
 }

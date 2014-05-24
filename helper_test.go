@@ -2,9 +2,18 @@ package queue
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	//	"testing"
 )
+
+func valsToTypes(vals []interface{}) []reflect.Type {
+	types := make([]reflect.Type, len(vals))
+	for i, v := range vals {
+		types[i] = reflect.TypeOf(v)
+	}
+	return types
+}
 
 var result string
 
@@ -12,6 +21,7 @@ type (
 	testfunc struct {
 		fn     interface{}
 		params []interface{}
+		name   string
 	}
 
 	testcase struct {
@@ -35,9 +45,9 @@ type (
 
 func (tf testfunc) add(q *Queue) *Queue {
 	if len(tf.params) > 0 {
-		return q.Add(tf.fn, tf.params...)
+		return q.AddNamed(tf.name, tf.fn, tf.params...)
 	}
-	return q.Add(tf.fn)
+	return q.AddNamed(tf.name, tf.fn)
 }
 
 func (tc testcase) Q() *Queue {
@@ -82,7 +92,11 @@ func newTErr(result string, errMsg string, fns ...testfunc) testcaseErr {
 }
 
 func newF(fn interface{}, params ...interface{}) testfunc {
-	return testfunc{fn, params}
+	return testfunc{fn, params, ""}
+}
+
+func newFNamed(name string, fn interface{}, params ...interface{}) testfunc {
+	return testfunc{fn, params, name}
 }
 
 func set(s string) error {
@@ -103,8 +117,10 @@ func setToX() {
 	result = "X"
 }
 
-func appendString(s string) error {
-	result = result + s
+func appendString(ss ...string) error {
+	for _, s := range ss {
+		result = result + s
+	}
 	return nil
 }
 
@@ -180,6 +196,10 @@ func (s *S) Set(i int) error {
 	}
 	s.number = i
 	return nil
+}
+
+func (s *S) hi() string {
+	return "hiho"
 }
 
 func (s *S) SetString(str string) error {
