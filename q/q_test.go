@@ -32,6 +32,7 @@ func TestErr(t *testing.T) {
 	}
 }
 
+/*
 func TestFallbackErrSkip(t *testing.T) {
 	var bf bytes.Buffer
 	i, err := Q(strconv.Atoi, "3.5").Add(strconv.ParseFloat, "3.5", 64).LogErrorsTo(&bf).Fallback()
@@ -68,7 +69,9 @@ DEBUG: [0] func(string) (int, error){}("3") => 3, <nil>`
 		t.Errorf("debug log should be %#v, but is %#v", expected, bf.String())
 	}
 }
+*/
 
+/*
 func TestTee(t *testing.T) {
 	var bf1 bytes.Buffer
 	var bf2 bytes.Buffer
@@ -125,3 +128,4 @@ func TestTee(t *testing.T) {
 		t.Errorf("expected 3-fallback-3-4, but got: %#v", bf3.String())
 	}
 }
+*/
