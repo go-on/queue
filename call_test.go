@@ -7,6 +7,11 @@ import (
 	"testing"
 )
 
+// just for the coverage tool, does not test anything, because Ok() does not do anything
+func TestOk(t *testing.T) {
+	Ok()
+}
+
 func TestCall(t *testing.T) {
 	s := &S{}
 	err := Add(set, "9").
@@ -90,17 +95,29 @@ func TestRun(t *testing.T) {
 	}
 }
 
-func fbtest(input string) error {
-	return Add(
-		set, input,
+func TestRunError(t *testing.T) {
+	var s = &S{}
+	err := Add(
+		set, "9",
 	).Add(
 		read,
 	).Add(
-		appendString, Fallback(
-			Add(strconv.Atoi, PIPE).Add(Value, " is int"),
-			Add(strconv.ParseFloat, PIPE, 64).Add(set, "is float ").Add(read),
-		), " - ", PIPE,
-	).Run()
+		strconv.Atoi, Run(Add(appendString, PIPE).Add(read).Add(setErr, PIPE).Add(read)),
+	).Add(
+		s.Set, PIPE,
+	).CheckAndRun()
+
+	if err == nil {
+		t.Errorf("expecting error but got none")
+	}
+
+	if err.Error() != "setErr" {
+		t.Errorf(`expecting error "setErr" but got: %#v`, err.Error())
+	}
+
+	if s.number != 0 {
+		t.Errorf("s.number should be 0, but is: %#v", s.number)
+	}
 }
 
 func TestSetGetCollect(t *testing.T) {
@@ -150,6 +167,19 @@ func TestSubs(t *testing.T) {
 	}
 }
 
+func fbtest(input string) error {
+	return Add(
+		set, input,
+	).Add(
+		read,
+	).Add(
+		appendString, Fallback(
+			Add(strconv.Atoi, PIPE).Add(Value, " is int"),
+			Add(strconv.ParseFloat, PIPE, 64).Add(set, "is float ").Add(read),
+		), " - ", PIPE,
+	).Run()
+}
+
 func TestFallback(t *testing.T) {
 	err := fbtest("9.7")
 
@@ -173,6 +203,21 @@ func TestFallback(t *testing.T) {
 
 	if result != expected {
 		t.Errorf("result should be %#v, but is: %#v", expected, result)
+	}
+
+}
+
+func TestFallbackError(t *testing.T) {
+	err := fbtest("9.7b")
+
+	if err == nil {
+		t.Errorf("expecting error but got none")
+	}
+
+	expected := `strconv.ParseFloat: parsing "9.7b": invalid syntax`
+
+	if err.Error() != expected {
+		t.Errorf("expecting error %#v, but got %#v", expected, err.Error())
 	}
 
 }

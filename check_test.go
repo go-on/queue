@@ -46,6 +46,141 @@ func TestCheckNil(t *testing.T) {
 
 }
 
+func TestFallbackArgumentCheck(t *testing.T) {
+	s := "hu"
+	result = ""
+
+	err := Add(
+		set, "hi",
+	).Add(
+		appendString,
+		Fallback(
+			Add(setErr, "he").Add(read),
+			Add(set, "ho").Add(read),
+		),
+	).Add(
+		read,
+	).Add(
+		Set, &s, PIPE,
+	).CheckAndRun()
+
+	if err != nil {
+		t.Errorf("expecting no error but got: %s", err)
+	}
+
+	expected := "hoho"
+
+	if s != expected {
+		t.Errorf("s should be %#v, but is: %#v", expected, s)
+	}
+}
+
+func TestFallbackArgumentCheckError(t *testing.T) {
+	s := "hu"
+	result = ""
+
+	err := Add(
+		set, "hi",
+	).Add(
+		appendString,
+		Fallback(
+			Add(setErr, "he").Add(read),
+			Add(set, 4).Add(read),
+		),
+	).Add(
+		read,
+	).Add(
+		Set, &s, PIPE,
+	).CheckAndRun()
+
+	expected := `[0] function "func(string) error" gets invalid argument:
+	1. argument is a "int" but should be a "string"`
+
+	if err == nil {
+		t.Errorf("expecting error but got none")
+	}
+
+	if err.Error() != expected {
+		t.Errorf("expecting error %#v but got: %#v", expected, err.Error())
+	}
+
+}
+
+func TestRunArgumentCheckError(t *testing.T) {
+	s := "hu"
+	result = ""
+
+	err := Add(
+		set, "hi",
+	).Add(
+		appendString,
+		Run(Add(set, 4).Add(read)),
+	).Add(
+		read,
+	).Add(
+		Set, &s, PIPE,
+	).CheckAndRun()
+
+	expected := `[0] function "func(string) error" gets invalid argument:
+	1. argument is a "int" but should be a "string"`
+
+	if err == nil {
+		t.Errorf("expecting error but got none")
+	}
+
+	if err.Error() != expected {
+		t.Errorf("expecting error %#v but got: %#v", expected, err.Error())
+	}
+
+}
+
+func TestSubsCheck(t *testing.T) {
+	s := "hu"
+	result = ""
+
+	err := Add(
+		set, "hi",
+	).Sub(
+		Add(read).Add(appendString, PIPE, "he").Add(read),
+		Add(appendString, PIPE, "ho").Add(read),
+	).Add(
+		Set, &s, PIPE,
+	).CheckAndRun()
+
+	if err != nil {
+		t.Errorf("expecting no error but got: %s", err)
+	}
+
+	expected := "hihihehihiheho"
+
+	if s != expected {
+		t.Errorf("s should be %#v, but is: %#v", expected, s)
+	}
+}
+
+func TestSubsCheckError(t *testing.T) {
+	s := "hu"
+	result = ""
+
+	err := Add(
+		set, "hi",
+	).Sub(
+		Add(set, 4).Add(read),
+	).Add(
+		Set, &s, PIPE,
+	).CheckAndRun()
+
+	if err == nil {
+		t.Errorf(`expecting error but got none`)
+	}
+
+	expected := `[0] function "func(string) error" gets invalid argument:
+	1. argument is a "int" but should be a "string"`
+	if err.Error() != expected {
+		t.Errorf("expecting error %#v but got: %#v", expected, err.Error())
+	}
+}
+
 /*
 func TestFallbackCheck(t *testing.T) {
 	s := &S{}

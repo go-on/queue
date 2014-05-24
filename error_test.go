@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -27,6 +28,29 @@ func TestErrors(t *testing.T) {
 			t.Errorf("in testCasesErr[%d] wrong result expected %#v, but got: %#v", i, tc.result, result)
 		}
 	}
+}
+
+var testsPipeErr = []testcaseErr{
+	newTErr("456B456", `strconv.ParseInt: parsing "456B456": invalid syntax`,
+		newF(set, "456B456"),
+		newF(read),
+		newF(strconv.Atoi, PIPE),
+		newF(setInt, PIPE),
+		newF(read),
+		newF(strings.Replace, PIPE, "6", "B", -1),
+		newF(set, PIPE),
+	),
+	/*
+		newTErr("456B456", `strconv.ParseInt: parsing "456B456": invalid syntax`,
+			newF(set, "456B456"),
+			newF(read),
+			newF(strconv.Atoi, PIPE),
+			newF(setInt, PIPE),
+			newF(read),
+			newF(strings.Replace, PIPE, "6", "B", -1),
+			newF(set, PIPE),
+		),
+	*/
 }
 
 func TestPipeErrors(t *testing.T) {

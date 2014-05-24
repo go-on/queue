@@ -39,18 +39,6 @@ func TestPipeNoErrors(t *testing.T) {
 	}
 }
 
-var testsPipeErr = []testcaseErr{
-	newTErr("456B456", `strconv.ParseInt: parsing "456B456": invalid syntax`,
-		newF(set, "456B456"),
-		newF(read),
-		newF(strconv.Atoi, PIPE),
-		newF(setInt, PIPE),
-		newF(read),
-		newF(strings.Replace, PIPE, "6", "B", -1),
-		newF(set, PIPE),
-	),
-}
-
 func TestPipeMethod(t *testing.T) {
 	s := &S{4}
 
