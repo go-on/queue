@@ -3,15 +3,10 @@ queue
 
 Streamlined error handling and piping through a queue of go functions
 
-[![Build Status](https://secure.travis-ci.org/go-on/queue.png)](http://travis-ci.org/go-on/queue)
-
-[![GoDoc](https://godoc.org/github.com/go-on/queue?status.png)](http://godoc.org/github.com/go-on/queue)
-
-[![Coverage Status](https://img.shields.io/coveralls/go-on/queue.svg)](https://coveralls.io/r/go-on/queue?branch=master)
+[![Build Status](https://secure.travis-ci.org/go-on/queue.png)](http://travis-ci.org/go-on/queue) [![GoDoc](https://godoc.org/github.com/go-on/queue?status.png)](http://godoc.org/github.com/go-on/queue) [![Coverage Status](https://img.shields.io/coveralls/go-on/queue.svg)](https://coveralls.io/r/go-on/queue?branch=master)
 
 Status
 ------
-100% test coverage.
 This API is considered stable.
 
 Go >= 1.1 required
