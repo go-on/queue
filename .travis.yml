@@ -9,4 +9,4 @@ script:
   - go test -covermode=count -coverprofile=profile.cov
   - go get github.com/mattn/goveralls
   - go install github.com/mattn/goveralls
-  - goveralls -coverprofile=profile.cov -service=travis-ci
+  - $GOPATH/bin/goveralls -coverprofile=profile.cov -service=travis-ci
