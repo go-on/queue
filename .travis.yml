@@ -8,5 +8,5 @@ script:
   - go install code.google.com/p/go.tools/cmd/cover
   - go test -covermode=count -coverprofile=profile.cov
   - go get github.com/mattn/goveralls
-  - go install github.com/mattn/goveralls
-  - $GOPATH/bin/goveralls -coverprofile=profile.cov -service=travis-ci
+#  - go install github.com/mattn/goveralls
+  - go run $GOPATH/src/github.com/mattn/goveralls/*.go -coverprofile=profile.cov -service=travis-ci
