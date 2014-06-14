@@ -7,6 +7,8 @@ Streamlined error handling and piping through a queue of go functions
 
 [![GoDoc](https://godoc.org/github.com/go-on/queue?status.png)](http://godoc.org/github.com/go-on/queue)
 
+[![Coverage Status](https://img.shields.io/coveralls/go-on/queue.svg)](https://coveralls.io/r/go-on/queue?branch=master)
+
 Status
 ------
 100% test coverage.
