@@ -3,3 +3,9 @@ go:
   - 1.1
   - 1.2
   - tip
+install:
+  - go get code.google.com/p/go.tools/cmd/cover
+  - go get github.com/mattn/goveralls
+script:
+  - go test -covermode=count -coverprofile=profile.cov
+  - goveralls -coverprofile=profile.cov -service=travis-ci
