@@ -29,8 +29,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+
 	. "github.com/go-on/queue/q"
 )
+
+var client = &http.Client{}
 
 func main() {
 	user := &User{}
@@ -41,7 +44,7 @@ func main() {
 		setHeader, V, "X-Somekey", "some value", // V is the request
 	).TeeAndRun(
 		Q( // new queue feeded with request
-			(&http.Client{}).Do, V, // V is the request
+			client.Do, V, // V is the request
 		)(
 			json.Unmarshal, Fallback(
 				Q(getCache, V), // V is the request

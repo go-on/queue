@@ -29,6 +29,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+
 	. "github.com/go-on/queue/q"
 )
 
@@ -37,9 +38,10 @@ type User struct {
 	Location string `json:"location"`
 }
 
+var client = &http.Client{}
+
 type get struct {
 	*http.Request
-	*http.Client
 }
 
 func (g *get) Get(url string) (err error) {
@@ -52,7 +54,7 @@ func (g *get) AddHeader(key, val string) {
 }
 
 func (g *get) DoRequest() (resp *http.Response, err error) {
-	return g.Client.Do(g.Request)
+	return client.Do(g.Request)
 }
 
 func getBody(resp *http.Response) ([]byte, error) {
@@ -72,7 +74,7 @@ func getBody(resp *http.Response) ([]byte, error) {
 }
 
 func main() {
-	g := &get{Client: &http.Client{}}
+	g := &get{}
 	user := &User{}
 
 	defer func() {

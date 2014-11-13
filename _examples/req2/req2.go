@@ -26,10 +26,11 @@ Do you have an example of, say, how one might make an HTTP request?
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-on/queue"
-	. "github.com/go-on/queue/q"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/go-on/queue"
+	. "github.com/go-on/queue/q"
 )
 
 type User struct {
@@ -37,9 +38,10 @@ type User struct {
 	Location string `json:"location"`
 }
 
+var client = &http.Client{}
+
 type get struct {
 	*http.Request
-	*http.Client
 }
 
 func (g *get) Get(url string) (err error) {
@@ -52,7 +54,7 @@ func (g *get) AddHeader(key, val string) {
 }
 
 func (g *get) DoRequest() (resp *http.Response, err error) {
-	return g.Client.Do(g.Request)
+	return client.Do(g.Request)
 }
 
 func getBody(resp *http.Response) ([]byte, error) {
@@ -85,7 +87,7 @@ var handleError = queue.ErrHandlerFunc(func(err error) error {
 })
 
 func main() {
-	g := &get{Client: &http.Client{}}
+	g := &get{}
 	user := &User{}
 
 	defer func() {
