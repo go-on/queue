@@ -3,7 +3,7 @@ queue
 
 Streamlined error handling and piping through a queue of go functions
 
-[![Build Status](https://secure.travis-ci.org/go-on/queue.png)](http://travis-ci.org/go-on/queue) [![GoDoc](https://godoc.org/github.com/go-on/queue?status.png)](http://godoc.org/github.com/go-on/queue) [![Coverage Status](https://img.shields.io/coveralls/go-on/queue.svg)](https://coveralls.io/r/go-on/queue?branch=master)
+[![Build Status](https://drone.io/github.com/go-on/queue/status.png)](https://drone.io/github.com/go-on/queue/latest) [![GoDoc](https://godoc.org/github.com/go-on/queue?status.png)](http://godoc.org/github.com/go-on/queue) [![Coverage Status](https://img.shields.io/coveralls/go-on/queue.svg)](https://coveralls.io/r/go-on/queue?branch=master)
 
 Status
 ------
@@ -47,7 +47,7 @@ package main
 
 import (
     "fmt"
-    "github.com/go-on/queue"
+    "gopkg.in/go-on/queue.v2"
     "strconv"
 )
 
@@ -145,7 +145,7 @@ Here an example for saving a User object, we got from json (excerpt)
 with the shortcuts of q. All other features of `queue` are also available in `q`.
 
 ```go
-import "github.com/go-on/queue/q"
+import "gopkg.in/go-on/queue.v2/q"
 
 func SaveUser(w http.ResponseWriter, rq *http.Request) {
     u := &User{}

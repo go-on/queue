@@ -30,7 +30,7 @@ import (
 	"net/http"
 	"os"
 
-	. "github.com/go-on/queue/q"
+	. "gopkg.in/go-on/queue.v2/q"
 )
 
 var client = &http.Client{}

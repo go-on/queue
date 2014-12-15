@@ -32,7 +32,7 @@ package q
 import (
 	"io"
 
-	"github.com/go-on/queue"
+	"gopkg.in/go-on/queue.v2"
 )
 
 var (

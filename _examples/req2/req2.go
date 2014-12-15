@@ -29,8 +29,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/go-on/queue"
-	. "github.com/go-on/queue/q"
+	"gopkg.in/go-on/queue.v2"
+	. "gopkg.in/go-on/queue.v2/q"
 )
 
 type User struct {
